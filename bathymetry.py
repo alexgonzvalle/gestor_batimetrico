@@ -36,7 +36,7 @@ class Bathymetry:
     :param lon_mesh: Longitud de la malla.
     :param elevation_mesh: Profundidad de la malla."""
 
-    def __init__(self, file_path, zn_huso=None, zd_huso=None):
+    def __init__(self, file_path='', zn_huso=None, zd_huso=None):
         """ Carga la bathymetry general.
         :param file_path: Ruta del archivo.
         :param zn_huso: Zona del huso.
@@ -45,47 +45,49 @@ class Bathymetry:
         self.lat_mesh = None
         self.lon_mesh = None
         self.elevation_mesh = None
+        self.dlon = None
+        self.dlat = None
 
         self.lat_raw = None
         self.lon_raw = None
+        self.elevation_raw = None
 
-        # Obtener extension del archivo
-        type_file = file_path.split('.')[-1]
+        if file_path != '':
+            # Obtener extension del archivo
+            type_file = file_path.split('.')[-1]
 
-        if type_file == 'nc':
-            ds = xr.open_dataset(file_path)
+            if type_file == 'nc':
+                ds = xr.open_dataset(file_path)
 
-            self.lat_raw = np.squeeze(ds.lat.data)
-            self.lon_raw = np.squeeze(ds.lon.data)
+                lat_nc = np.squeeze(ds.lat.data)
+                lon_nc = np.squeeze(ds.lon.data)
+                self.lon_mesh, self.lat_mesh = np.meshgrid(lon_nc, lat_nc)
+                self.lon_raw = self.lon_mesh.ravel()
+                self.lat_raw = self.lat_mesh.ravel()
 
-            elevation_raw = - ds.elevation.data
-            self.elevation_raw = np.zeros((len(self.lat_raw), 1))
-            shape_z = elevation_raw.shape
-            for i in range(shape_z[0]):
-                for j in range(shape_z[1]):
-                    ele = elevation_raw[i, j]
-                    if ele is np.ma.masked:
-                        ele = np.NaN
-                    self.elevation_raw[i+j] = ele
+                self.elevation_mesh = - np.squeeze(ds.elevation.data)
+                self.elevation_raw = self.elevation_mesh.ravel()
 
-        elif type_file == 'dat':
-            data = np.loadtxt(file_path)
-            self.lon_raw = np.array(data[:, 0])
-            self.lat_raw = np.array(data[:, 1])
-            self.elevation_raw = np.array(data[:, 2])
+            elif type_file == 'dat':
+                data = np.loadtxt(file_path)
+                self.lon_raw = np.array(data[:, 0])
+                self.lat_raw = np.array(data[:, 1])
+                self.elevation_raw = np.array(data[:, 2])
 
-            if zn_huso is not None and zd_huso is not None:
-                self.lon_raw, self.lat_raw = utm.to_latlon(self.lon_raw, self.lat_raw, zn_huso, zd_huso)
-        else:
-            raise ValueError('El archivo {:s} no es valido.'.format(file_path))
+                if zn_huso is not None and zd_huso is not None:
+                    self.lat_raw, self.lon_raw = utm.to_latlon(self.lon_raw, self.lat_raw, zn_huso, zd_huso)
+            else:
+                raise ValueError('El archivo {:s} no es valido.'.format(file_path))
 
     def to_mesh(self, size_mesh=200):
         """ Interpola la bathymetry general a una malla.
         :param size_mesh: Tamaño de la malla."""
 
-        lon = np.linspace(np.min(self.lon_raw), np.max(self.lon_raw), size_mesh)
-        lat = np.linspace(np.min(self.lat_raw), np.max(self.lat_raw), size_mesh)
+        lon = np.linspace(self.lon_raw.min(), self.lon_raw.max(), size_mesh)
+        lat = np.linspace(self.lat_raw.min(), self.lat_raw.max(), size_mesh)
         self.lon_mesh, self.lat_mesh = np.meshgrid(lon, lat)
+        self.dlon = np.unique(np.diff(lon)).max()
+        self.dlat = np.unique(np.diff(lat)).max()
 
         # Criterio: 300K en 200x200 = 8s de computo
         step_bathymetry = 1
@@ -117,11 +119,11 @@ class Bathymetry:
         :param b_detail: Bathymetry de detalle.
         :return: Bathymetry fusionada."""
 
-        b_total = self.__init__()
+        b_total = Bathymetry()
 
         # Quitar de bathymetry la bathynetry de detalle
-        s = np.logical_and(np.logical_and(self.lon_raw >= np.min(b_detail.lon_raw), self.lon_raw <= np.max(b_detail.lon_raw)),
-                           np.logical_and(self.lat_raw >= np.min(b_detail.lat_raw), self.lat_raw <= np.max(b_detail.lat_raw)))
+        s = np.logical_and(np.logical_and(self.lon_raw >= b_detail.lon_raw.min(), self.lon_raw <= b_detail.lon_raw.max()),
+                           np.logical_and(self.lat_raw >= b_detail.lat_raw.min(), self.lat_raw <= b_detail.lat_raw.max()))
         lon_raw = np.delete(self.lon_raw, s)
         lat_raw = np.delete(self.lat_raw, s)
         elevation_raw = np.delete(self.elevation_raw, s)
@@ -183,13 +185,13 @@ class Bathymetry:
             lon = round((coord_lon - lon_min) * (size_lon / (lon_max - lon_min)))
             lat = round((abs(coord_lat) - abs(lat_min)) * (size_lat / (abs(lat_max) - abs(lat_min))))
 
-            elevation_mesh = self.elevation_mesh.copy()
-            elevation_mesh[np.isnan(elevation_mesh)] = -50
+            elevation = self.elevation_mesh.copy()
+            elevation[np.isnan(elevation)] = -50
 
             fig1, [ax1, ax2] = plt.subplots(2)
             if 0 <= lat <= size_lat:
-                ax1.plot(-elevation_mesh[:, lat], label=lbl_z + ' lat={:.2f}'.format(coord_lat))
-                ticks_loc = np.linspace(lon_max, lon_min, len(ax1.xaxis.get_ticklabels()))
+                ax1.plot(-elevation[:, lat], label=lbl_z + ' lat={:.2f}'.format(coord_lat))
+                ticks_loc = np.linspace(lon_min, lon_max, len(ax1.xaxis.get_ticklabels()))
                 ax1.xaxis.set_major_locator(ticker.FixedLocator(ticks_loc))
                 ax1.set_xticklabels(['{:.2f}'.format(x) for x in ticks_loc])
                 ax1.legend()
@@ -198,8 +200,8 @@ class Bathymetry:
                 ax1.grid(True)
 
             if 0 <= lon <= size_lon:
-                ax2.plot(-elevation_mesh[lon, :], label=lbl_z + ' lon={:.2f}'.format(coord_lon))
-                ticks_loc = np.linspace(lat_min, lat_max, len(ax2.xaxis.get_ticklabels()))
+                ax2.plot(-elevation[lon, :], label=lbl_z + ' lon={:.2f}'.format(coord_lon))
+                ticks_loc = np.linspace(lat_max, lat_min, len(ax2.xaxis.get_ticklabels()))
                 ax2.xaxis.set_major_locator(ticker.FixedLocator(ticks_loc))
                 ax2.set_xticklabels(['{:.2f}'.format(x) for x in ticks_loc])
                 ax2.legend()
@@ -211,73 +213,77 @@ class Bathymetry:
         else:
             raise ValueError('No se ha interpola la bathymetry. Utilice el metodo to_mesh() antes.')
 
-    def plot_perfil_oblicuo(self, dlon, dlat, coord1_lon, coord1_lat, coord2_lon, coord2_lat, lbl_z=''):
+    def plot_perfil_oblicuo(self, coord1_lon, coord1_lat, coord2_lon, coord2_lat, lbl_z=''):
         """ Grafica el perfil oblicuo de la bathymetry general.
-        :param dlon: Delta LON.
-        :param dlat: Delta LAT.
         :param coord1_lon: Coordenada 1 LON.
         :param coord1_lat: Coordenada 1 LAT.
         :param coord2_lon: Coordenada 2 LON.
         :param coord2_lat: Coordenada 2 LAT.
         :param lbl_z: Etiqueta de la profundidad."""
 
-        pp = [[coord1_lon, coord1_lat]]
+        if self.lon_mesh is not None:
+            pp = [[coord1_lon, coord1_lat]]
 
-        nlon, nlat = int((coord2_lon - coord1_lon) / dlon), int((coord2_lat - coord1_lat) / dlat)
-        segments = nlon
-        if nlat > nlon:
-            segments = nlat
+            nlon, nlat = int((coord2_lon - coord1_lon) / self.dlon), abs(int((coord2_lat - coord1_lat) / self.dlat))
+            segments = nlon
+            if nlat > nlon:
+                segments = nlat
 
-        lon_delta = (coord2_lon - coord1_lon) / float(segments)
-        lat_delta = (coord2_lat - coord1_lat) / float(segments)
-        for j in range(1, segments):
-            pp.append([coord1_lon + j * lon_delta, coord1_lat + j * lat_delta])
-        pp.append([coord2_lon, coord2_lat])
+            lon_delta = (coord2_lon - coord1_lon) / float(segments)
+            lat_delta = abs(coord2_lat - coord1_lat) / float(segments)
+            for j in range(1, segments):
+                pp.append([coord1_lon + j * lon_delta, coord1_lat + j * lat_delta])
+            pp.append([coord2_lon, coord2_lat])
 
-        elevation_raw = self.elevation_raw.copy()
-        elevation_raw[np.isnan(elevation_raw)] = -50
+            elevation = self.elevation_mesh.copy()
+            elevation[np.isnan(elevation)] = -50
 
-        p_elevation = []
-        for pp_c in pp:
-            p_elevation.append(get_result_interpolation_point(self.lon_raw, self.lat_raw, pp_c[0], pp_c[1], elevation_raw))
-        p_elevation = np.array(p_elevation)
+            p_elevation = []
+            for pp_c in pp:
+                p_elevation.append(get_result_interpolation_point(self.lon_mesh, self.lat_mesh, pp_c[0], pp_c[1], elevation))
+            p_elevation = np.array(p_elevation)
 
-        fig1, ax = plt.subplots()
-        ax.plot(-p_elevation, label=lbl_z + '({:.2f},{:.2f}) to ({:.2f},{:.2f})'.format(coord1_lon, coord1_lat, coord2_lon, coord2_lat))
-        ticks_loc = np.linspace(np.nanmin(self.lon_raw), np.nanmax(self.lat_raw), len(ax.xaxis.get_ticklabels()))
-        ax.xaxis.set_major_locator(ticker.FixedLocator(ticks_loc))
-        ax.set_xticklabels(['{:.2f}'.format(x) for x in ticks_loc])
-        ax.legend()
-        ax.set_xlabel('LON')
-        ax.set_ylabel('Z')
-        ax.grid(True)
+            fig1, ax = plt.subplots()
+            ax.plot(-p_elevation, label=lbl_z + '({:.2f},{:.2f}) to ({:.2f},{:.2f})'.format(coord1_lon, coord1_lat, coord2_lon, coord2_lat))
+            # ticks_loc = np.linspace(np.nanmin(self.lon_mesh), np.nanmax(self.lon_mesh), len(ax.xaxis.get_ticklabels()))
+            # ax.xaxis.set_major_locator(ticker.FixedLocator(ticks_loc))
+            # ax.set_xticklabels(['{:.2f}'.format(x) for x in ticks_loc])
+            ax.legend()
+            ax.set_xlabel('LON')
+            ax.set_ylabel('Z')
+            ax.grid(True)
 
-        fig1.show()
+            plt.show()
+        else:
+            raise ValueError('No se ha interpola la bathymetry. Utilice el metodo to_mesh() antes.')
 
     def plot_check_fusionate(self, b_detail):
         """ Grafica la bathymetry general y la bathymetry de detalle.
         :param b_detail: Bathymetry de detalle."""
 
-        fig, ax = plt.subplots(1, 1)
+        if self.lon_mesh is not None and b_detail.lon_mesh is not None:
+            fig, ax = plt.subplots(1, 1)
 
-        _min, _max = np.nanmin(self.elevation_raw), np.nanmax(self.elevation_raw)
-        levels = np.linspace(_min, _max, 64)
+            _min, _max = np.nanmin(self.elevation_mesh), np.nanmax(self.elevation_mesh)
+            levels = np.linspace(_min, _max, 64)
 
-        ax.set_title('Batimetria')
-        pc = ax.contourf(self.lon_raw, self.lat_raw, np.array(self.elevation_raw), levels=levels)
-        ax.set_xlabel('LON')
-        ax.set_ylabel('LAT')
+            ax.set_title('Batimetria')
+            pc = ax.contourf(self.lon_mesh, self.lat_mesh, self.elevation_mesh, levels=levels, cmap='Blues_r')
+            ax.set_xlabel('LON')
+            ax.set_ylabel('LAT')
 
-        ax.contourf(b_detail.lon_raw, b_detail.lat_raw, b_detail.elevation_raw, levels=levels)
+            ax.contourf(b_detail.lon_mesh, b_detail.lat_mesh, b_detail.elevation_mesh, levels=levels, cmap='Blues_r')
 
-        ax.add_patch(patches.Rectangle(
-            (b_detail.lon_raw.min(), b_detail.lat_raw.min()),
-            b_detail.lon_raw.max() - b_detail.lon_raw.min(), b_detail.lat_raw.max() - b_detail.lat_raw.min(),
-            linewidth=1, edgecolor='r', facecolor='none')
-        )
+            ax.add_patch(patches.Rectangle(
+                (b_detail.lon_mesh.min(), b_detail.lat_mesh.min()),
+                b_detail.lon_mesh.max() - b_detail.lon_mesh.min(), b_detail.lat_mesh.max() - b_detail.lat_mesh.min(),
+                linewidth=1, edgecolor='r', facecolor='none')
+            )
 
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.05)
-        plt.colorbar(pc, ticks=np.linspace(_min, _max, 11), spacing='uniform', cax=cax)
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            plt.colorbar(pc, ticks=np.linspace(_min, _max, 11), spacing='uniform', cax=cax)
 
-        fig.show()
+            plt.show()
+        else:
+            raise ValueError('No se ha interpola la bathymetry. Utilice el metodo to_mesh() antes.')
