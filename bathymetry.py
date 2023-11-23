@@ -36,11 +36,15 @@ class Bathymetry:
     :param lon_mesh: Longitud de la malla.
     :param elevation_mesh: Profundidad de la malla."""
 
-    def __init__(self, file_path='', zn_huso=None, zd_huso=None):
+    def __init__(self, file_path='', zn_huso=None, zd_huso=None, lon_min=None, lat_min=None, lon_max=None, lat_max=None):
         """ Carga la bathymetry general.
         :param file_path: Ruta del archivo.
         :param zn_huso: Zona del huso.
-        :param zd_huso: Zona del huso."""
+        :param zd_huso: Zona del huso.
+        :param lon_min: Longitud minima.
+        :param lat_min: Latitud minima.
+        :param lon_max: Longitud maxima.
+        :param lat_max: Latitud maxima."""
 
         self.lat_mesh = None
         self.lon_mesh = None
@@ -78,6 +82,13 @@ class Bathymetry:
                     self.lat_raw, self.lon_raw = utm.to_latlon(self.lon_raw, self.lat_raw, zn_huso, zd_huso)
             else:
                 raise ValueError('El archivo {:s} no es valido.'.format(file_path))
+
+            if lon_min is not None and lat_min is not None and lon_max is not None and lat_max is not None:
+                s = np.logical_and(np.logical_and(self.lon_raw >= lon_min, self.lon_raw <= lon_max),
+                                   np.logical_and(self.lat_raw >= lat_min, self.lat_raw <= lat_max))
+                self.lon_raw = self.lon_raw[s]
+                self.lat_raw = self.lat_raw[s]
+                self.elevation_raw = self.elevation_raw[s]
 
     def to_mesh(self, size_mesh=200):
         """ Interpola la bathymetry general a una malla.
@@ -135,8 +146,10 @@ class Bathymetry:
 
         return b_total
 
-    def plot(self):
-        """Grafica la batimetria."""
+    def plot(self, as_contourf=False, cmap='Blues_r'):
+        """Grafica la batimetria.
+        :param as_contourf: Grafica como contourf.
+        :param cmap: Colormap."""
 
         if self.lon_mesh is not None:
             elevation = self.elevation_mesh.copy() * -1
@@ -146,8 +159,12 @@ class Bathymetry:
             ax.set_xlabel('Lon')
             ax.set_ylabel('Lat')
             ax.set_aspect('equal')
-            pc = ax.pcolor(self.lon_mesh, self.lat_mesh, elevation,
-                           cmap='Blues_r', shading='auto', edgecolors="k", linewidth=0.5)
+            if as_contourf:
+                pc = ax.contourf(self.lon_mesh, self.lat_mesh, elevation, cmap=cmap)
+            else:
+                pc = ax.pcolor(self.lon_mesh, self.lat_mesh, elevation,
+                               cmap=cmap, shading='auto', edgecolors="k", linewidth=0.5)
+
             cbar = fig.colorbar(pc)
             cbar.set_label("(m)", labelpad=-0.1)
             plt.show()
