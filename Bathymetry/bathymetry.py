@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import utm
 import xarray as xr
@@ -17,8 +18,9 @@ class Bathymetry:
     :param lon_mesh: Longitud de la malla.
     :param elevation_mesh: Profundidad de la malla."""
 
-    def __init__(self, file_path='', zn_huso=None, zd_huso=None, lon_min=None, lat_min=None, lon_max=None, lat_max=None):
+    def __init__(self, path, file_path='', zn_huso=None, zd_huso=None, lon_min=None, lat_min=None, lon_max=None, lat_max=None):
         """ Carga la bathymetry general.
+        :param path: Ruta del proyecto.
         :param file_path: Ruta del archivo.
         :param zn_huso: Zona del huso.
         :param zd_huso: Zona del huso.
@@ -26,6 +28,9 @@ class Bathymetry:
         :param lat_min: Latitud minima.
         :param lon_max: Longitud maxima.
         :param lat_max: Latitud maxima."""
+
+        self.name_store_data = 'bathymetry.pkl'
+        self.path = path
 
         self.lat_mesh = None
         self.lon_mesh = None
@@ -310,8 +315,8 @@ class Bathymetry:
 
     def load_store_data(self):
         load_store = False
-        if os.path.exists(self.path_project):
-            with open(os.path.join(self.path_project, self.name_store_data), 'rb') as f_data:
+        if os.path.exists(self.path):
+            with open(os.path.join(self.path, self.name_store_data), 'rb') as f_data:
                 data = pickle.load(f_data)
             if data:
                 self.lat_mesh = data.lat_mesh if hasattr(data, 'lat_mesh') else self.lat_mesh
@@ -329,5 +334,5 @@ class Bathymetry:
         return load_store
 
     def save(self):
-        with open(os.path.join(self.path_project, self.name_store_data), 'wb') as output:
+        with open(os.path.join(self.path, self.name_store_data), 'wb') as output:
             pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
