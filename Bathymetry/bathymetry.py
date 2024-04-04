@@ -314,8 +314,9 @@ class Bathymetry:
 
     def load_store_data(self):
         load_store = False
-        if os.path.exists(self.path):
-            with open(os.path.join(self.path, self.name_store_data), 'rb') as f_data:
+        path = os.path.join(self.path, self.name_store_data)
+        if os.path.exists(path):
+            with open(path, 'rb') as f_data:
                 data = pickle.load(f_data)
             if data:
                 self.lat_mesh = data.lat_mesh if hasattr(data, 'lat_mesh') else self.lat_mesh
