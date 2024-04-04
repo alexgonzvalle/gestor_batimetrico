@@ -2,29 +2,10 @@ import numpy as np
 import utm
 import xarray as xr
 from scipy.interpolate import griddata
+import pickle
 
 from matplotlib import pyplot as plt, ticker, patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-
-def get_result_interpolation_point(x, y, x_point, y_point, value, trans=False):
-    """ Obtiene el valor de la interpolacion de un punto. (x,y) -> (x_point,y_point)
-    :param x: Coordenada X.
-    :param y: Coordenada Y.
-    :param x_point: Coordenada X del punto.
-    :param y_point: Coordenada Y del punto.
-    :param value: Valor de la interpolacion.
-    :param trans: Transpuesta."""
-
-    d = np.sqrt((x - x_point) ** 2 + (y - y_point) ** 2)
-    index_x, index_y = np.where(d == np.min(d))
-    if trans:
-        value_result = value[index_y, index_x]
-    else:
-        value_result = value[index_x, index_y]
-    value_result[np.isnan(value_result)] = 0
-
-    return value_result[0]
 
 
 class Bathymetry:
@@ -90,6 +71,8 @@ class Bathymetry:
                 self.lat_raw = self.lat_raw[s]
                 self.elevation_raw = self.elevation_raw[s]
 
+        self.load_store_data()
+
     def to_mesh(self, size_mesh=200):
         """ Interpola la bathymetry general a una malla.
         :param size_mesh: Tamaño de la malla."""
@@ -124,6 +107,7 @@ class Bathymetry:
             np.savetxt(file_general_path, data_save, fmt='%s')
         else:
             raise ValueError('No se ha interpola la bathymetry. Utilice el metodo to_mesh() antes.')
+
 
     def fusionate(self, b_detail):
         """ Fusiona la bathymetry general con la bathymetry de detalle.
@@ -238,6 +222,25 @@ class Bathymetry:
         :param coord2_lat: Coordenada 2 LAT.
         :param lbl_z: Etiqueta de la profundidad."""
 
+        def get_result_interpolation_point(x, y, x_point, y_point, value, trans=False):
+            """ Obtiene el valor de la interpolacion de un punto. (x,y) -> (x_point,y_point)
+            :param x: Coordenada X.
+            :param y: Coordenada Y.
+            :param x_point: Coordenada X del punto.
+            :param y_point: Coordenada Y del punto.
+            :param value: Valor de la interpolacion.
+            :param trans: Transpuesta."""
+
+            d = np.sqrt((x - x_point) ** 2 + (y - y_point) ** 2)
+            index_x, index_y = np.where(d == np.min(d))
+            if trans:
+                value_result = value[index_y, index_x]
+            else:
+                value_result = value[index_x, index_y]
+            value_result[np.isnan(value_result)] = 0
+
+            return value_result[0]
+
         if self.lon_mesh is not None:
             pp = [[coord1_lon, coord1_lat]]
 
@@ -304,3 +307,27 @@ class Bathymetry:
             plt.show()
         else:
             raise ValueError('No se ha interpola la bathymetry. Utilice el metodo to_mesh() antes.')
+
+    def load_store_data(self):
+        load_store = False
+        if os.path.exists(self.path_project):
+            with open(os.path.join(self.path_project, self.name_store_data), 'rb') as f_data:
+                data = pickle.load(f_data)
+            if data:
+                self.lat_mesh = data.lat_mesh if hasattr(data, 'lat_mesh') else self.lat_mesh
+                self.lon_mesh = data.lon_mesh if hasattr(data, 'lon_mesh') else self.lon_mesh
+                self.elevation_mesh = data.elevation_mesh if hasattr(data, 'elevation_mesh') else self.elevation_mesh
+                self.dlon = data.dlon if hasattr(data, 'dlon') else self.dlon
+                self.dlat = data.dlat if hasattr(data, 'dlat') else self.dlat
+
+                self.lat_raw = data.lat_raw if hasattr(data, 'lat_raw') else self.lat_raw
+                self.lon_raw = data.lon_raw if hasattr(data, 'lon_raw') else self.lon_raw
+                self.elevation_raw = data.elevation_raw if hasattr(data, 'elevation_raw') else self.elevation_raw
+
+                load_store = True
+
+        return load_store
+
+    def save(self):
+        with open(os.path.join(self.path_project, self.name_store_data), 'wb') as output:
+            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
