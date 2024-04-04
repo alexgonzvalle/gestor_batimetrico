@@ -18,7 +18,7 @@ class Bathymetry:
     :param lon_mesh: Longitud de la malla.
     :param elevation_mesh: Profundidad de la malla."""
 
-    def __init__(self, path, file_path='', zn_huso=None, zd_huso=None, lon_min=None, lat_min=None, lon_max=None, lat_max=None):
+    def __init__(self, file_path='', zn_huso=None, zd_huso=None, lon_min=None, lat_min=None, lon_max=None, lat_max=None):
         """ Carga la bathymetry general.
         :param path: Ruta del proyecto.
         :param file_path: Ruta del archivo.
@@ -28,9 +28,6 @@ class Bathymetry:
         :param lat_min: Latitud minima.
         :param lon_max: Longitud maxima.
         :param lat_max: Latitud maxima."""
-
-        self.name_store_data = 'bathymetry.pkl'
-        self.path = path
 
         self.lat_mesh = None
         self.lon_mesh = None
@@ -311,28 +308,3 @@ class Bathymetry:
             plt.show()
         else:
             raise ValueError('No se ha interpola la bathymetry. Utilice el metodo to_mesh() antes.')
-
-    def load_store_data(self):
-        load_store = False
-        path = os.path.join(self.path, self.name_store_data)
-        if os.path.exists(path):
-            with open(path, 'rb') as f_data:
-                data = pickle.load(f_data)
-            if data:
-                self.lat_mesh = data.lat_mesh if hasattr(data, 'lat_mesh') else self.lat_mesh
-                self.lon_mesh = data.lon_mesh if hasattr(data, 'lon_mesh') else self.lon_mesh
-                self.elevation_mesh = data.elevation_mesh if hasattr(data, 'elevation_mesh') else self.elevation_mesh
-                self.dlon = data.dlon if hasattr(data, 'dlon') else self.dlon
-                self.dlat = data.dlat if hasattr(data, 'dlat') else self.dlat
-
-                self.lat_raw = data.lat_raw if hasattr(data, 'lat_raw') else self.lat_raw
-                self.lon_raw = data.lon_raw if hasattr(data, 'lon_raw') else self.lon_raw
-                self.elevation_raw = data.elevation_raw if hasattr(data, 'elevation_raw') else self.elevation_raw
-
-                load_store = True
-
-        return load_store
-
-    def save(self):
-        with open(os.path.join(self.path, self.name_store_data), 'wb') as output:
-            pickle.dump(self, output, pickle.HIGHEST_PROTOCOL)
