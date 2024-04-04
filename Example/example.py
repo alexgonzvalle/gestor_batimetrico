@@ -1,4 +1,4 @@
-from bathymetry import Bathymetry
+from Bathymetry.bathymetry import Bathymetry
 
 
 # b = Bathymetry(r'C:\Users\gonzalezva\Downloads\Emodnet_2020_Emodnet_2020.nc')
