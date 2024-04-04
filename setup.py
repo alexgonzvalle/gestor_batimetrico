@@ -6,7 +6,7 @@ long_description = (this_directory / "README.md").read_text()
 
 VERSION = '0.0.1'
 DESCRIPTION = 'Gestor Batimetrico.'
-PACKAGE_NAME = 'Batimetria'
+PACKAGE_NAME = 'Bathymetry'
 AUTHOR = 'IHCantabria - AGV'
 EMAIL = 'gonzalezva@unican.es'
 GITHUB_URL = 'https://github.com/alexgonzvalle'
@@ -23,7 +23,7 @@ setup(
     author_email=EMAIL,
     url=GITHUB_URL,
     keywords=[],
-    install_requires=['numpy', 'matplotlib', 'utm', 'xarray', 'scipy', 'pickle'],
+    install_requires=['numpy', 'matplotlib', 'utm', 'xarray', 'scipy'],
     package_data={'': []},
     include_package_data=True,
     classifiers=[
