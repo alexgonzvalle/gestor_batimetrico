@@ -113,7 +113,6 @@ class Bathymetry:
         else:
             raise ValueError('No se ha interpola la bathymetry. Utilice el metodo to_mesh() antes.')
 
-
     def fusionate(self, b_detail):
         """ Fusiona la bathymetry general con la bathymetry de detalle.
         :param b_detail: Bathymetry de detalle.
