@@ -73,8 +73,6 @@ class Bathymetry:
                 self.lat_raw = self.lat_raw[s]
                 self.elevation_raw = self.elevation_raw[s]
 
-        self.load_store_data()
-
     def to_mesh(self, size_mesh=200):
         """ Interpola la bathymetry general a una malla.
         :param size_mesh: Tamaño de la malla."""
