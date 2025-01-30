@@ -3,7 +3,7 @@ import numpy as np
 import utm
 import xarray as xr
 from scipy.interpolate import griddata
-import pickle
+import logging
 
 from matplotlib import pyplot as plt, ticker, patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -18,16 +18,13 @@ class Bathymetry:
     :param lon_mesh: Longitud de la malla.
     :param elevation_mesh: Profundidad de la malla."""
 
-    def __init__(self, file_path='', zn_huso=None, zd_huso=None, lon_min=None, lat_min=None, lon_max=None, lat_max=None):
+    def __init__(self, zn_huso=None, zd_huso=None):
         """ Carga la bathymetry general.
-        :param path: Ruta del proyecto.
-        :param file_path: Ruta del archivo.
         :param zn_huso: Zona del huso.
-        :param zd_huso: Zona del huso.
-        :param lon_min: Longitud minima.
-        :param lat_min: Latitud minima.
-        :param lon_max: Longitud maxima.
-        :param lat_max: Latitud maxima."""
+        :param zd_huso: Zona del huso."""
+
+        self.zn_huso = zn_huso
+        self.zd_huso = zd_huso
 
         self.lat_mesh = None
         self.lon_mesh = None
@@ -38,6 +35,12 @@ class Bathymetry:
         self.lat_raw = None
         self.lon_raw = None
         self.elevation_raw = None
+
+    def load_file(self, file_path):
+        """ Carga la bathymetry general.
+        :param file_path: Ruta del archivo."""
+
+        logging.info(f'Cargando archivo {file_path}')
 
         if file_path != '':
             # Obtener extension del archivo
@@ -54,28 +57,43 @@ class Bathymetry:
 
                 self.elevation_mesh = - np.squeeze(ds.elevation.data)
                 self.elevation_raw = self.elevation_mesh.ravel()
-
             elif type_file == 'dat':
                 data = np.loadtxt(file_path)
                 self.lon_raw = np.array(data[:, 0])
                 self.lat_raw = np.array(data[:, 1])
                 self.elevation_raw = np.array(data[:, 2])
 
-                if zn_huso is not None and zd_huso is not None:
-                    self.lat_raw, self.lon_raw = utm.to_latlon(self.lon_raw, self.lat_raw, zn_huso, zd_huso)
+                if self.zn_huso is not None and self.zd_huso is not None:
+                    self.lat_raw, self.lon_raw = utm.to_latlon(self.lon_raw, self.lat_raw, self.zn_huso, self.zd_huso)
             else:
+                logging.error('El archivo {:s} no es valido.'.format(file_path))
                 raise ValueError('El archivo {:s} no es valido.'.format(file_path))
 
-            if lon_min is not None and lat_min is not None and lon_max is not None and lat_max is not None:
-                s = np.logical_and(np.logical_and(self.lon_raw >= lon_min, self.lon_raw <= lon_max),
-                                   np.logical_and(self.lat_raw >= lat_min, self.lat_raw <= lat_max))
-                self.lon_raw = self.lon_raw[s]
-                self.lat_raw = self.lat_raw[s]
-                self.elevation_raw = self.elevation_raw[s]
+        logging.info(f'Archivo cargado correctamente. '
+                     f'Dimensiones: {self.lon_mesh.shape}. Latitud: {self.lat_mesh.min()} - {self.lat_mesh.max()}. Longitud: {self.lon_mesh.min()} - {self.lon_mesh.max()}. '
+                     f'Profundidad: {self.elevation_mesh.min()} - {self.elevation_mesh.max()}.')
+
+    def filter(self, lon_min, lat_min, lon_max, lat_max):
+        """ Filtra la bathymetry general.
+        :param lon_min: Longitud minima.
+        :param lat_min: Latitud minima.
+        :param lon_max: Longitud maxima.
+        :param lat_max: Latitud maxima."""
+
+        s = np.logical_and(np.logical_and(self.lon_raw >= lon_min, self.lon_raw <= lon_max),
+                           np.logical_and(self.lat_raw >= lat_min, self.lat_raw <= lat_max))
+        self.lon_raw = self.lon_raw[s]
+        self.lat_raw = self.lat_raw[s]
+        self.elevation_raw = self.elevation_raw[s]
+
+        logging.info(f'Batimetria filtrada correctamente. '
+                     f'Dimensiones: {self.lon_raw.shape}. Latitud: {self.lat_raw.min()} - {self.lat_raw.max()}. Longitud: {self.lon_raw.min()} - {self.lon_raw.max()}. '
+                     f'Profundidad: {self.elevation_raw.min()} - {self.elevation_raw.max()}.')
 
     def to_mesh(self, size_mesh=200):
         """ Interpola la bathymetry general a una malla.
         :param size_mesh: Tamaño de la malla."""
+        logging.info(f'Pasar batimetria a malla. Tamaño: {size_mesh}.')
 
         lon = np.linspace(self.lon_raw.min(), self.lon_raw.max(), size_mesh)
         lat = np.linspace(self.lat_raw.min(), self.lat_raw.max(), size_mesh)
@@ -89,9 +107,15 @@ class Bathymetry:
         while criterio > 300000:
             step_bathymetry += 1
             criterio = len(self.lon_raw) / step_bathymetry
+        logging.info(f'Paso de la batimetria: {step_bathymetry}. Criterio: {criterio}.')
 
+        logging.info('Interpolando batimetria...')
         self.elevation_mesh = griddata((self.lon_raw[0:-1:step_bathymetry], self.lat_raw[0:-1:step_bathymetry]),
                                        self.elevation_raw[0:-1:step_bathymetry], (self.lon_mesh, self.lat_mesh))
+
+        logging.info(f'Batimetria interpolada correctamente. '
+                     f'Dimensiones: {self.lon_mesh.shape}. Latitud: {self.lat_mesh.min()} - {self.lat_mesh.max()}. Longitud: {self.lon_mesh.min()} - {self.lon_mesh.max()}. '
+                     f'Profundidad: {self.elevation_mesh.min()} - {self.elevation_mesh.max()}.')
 
     def save_mesh(self, file_general_path, in_utm=False):
         """ Guarda la bathymetry general en un archivo .dat.
@@ -105,7 +129,9 @@ class Bathymetry:
                 data_save = np.array([self.lon_mesh.ravel(), self.lat_mesh.ravel(), self.elevation_mesh.ravel()]).T
 
             np.savetxt(file_general_path, data_save, fmt='%s')
+            logging.info(f'Archivo guardado correctamente en {file_general_path}.')
         else:
+            logging.error('No se ha interpola la bathymetry. Utilice el metodo to_mesh() antes.')
             raise ValueError('No se ha interpola la bathymetry. Utilice el metodo to_mesh() antes.')
 
     def fusionate(self, b_detail):
@@ -113,9 +139,12 @@ class Bathymetry:
         :param b_detail: Bathymetry de detalle.
         :return: Bathymetry fusionada."""
 
+        logging.info('Fusionando batimetria general con batimetria de detalle...')
+
         b_total = Bathymetry()
 
         # Quitar de bathymetry la bathynetry de detalle
+        logging.info('Quitando de la batimetria general la batimetria de detalle...')
         s = np.logical_and(np.logical_and(self.lon_raw >= b_detail.lon_raw.min(), self.lon_raw <= b_detail.lon_raw.max()),
                            np.logical_and(self.lat_raw >= b_detail.lat_raw.min(), self.lat_raw <= b_detail.lat_raw.max()))
         lon_raw = np.delete(self.lon_raw, s)
@@ -123,9 +152,14 @@ class Bathymetry:
         elevation_raw = np.delete(self.elevation_raw, s)
 
         # Fusionar bathymetry con bathynetry de detalle
+        logging.info('Fusionando batimetria general con batimetria de detalle...')
         b_total.lat_raw = np.hstack((lat_raw, b_detail.lat_raw))
         b_total.lon_raw = np.hstack((lon_raw, b_detail.lon_raw))
         b_total.elevation_raw = np.hstack((elevation_raw, b_detail.elevation_raw))
+
+        logging.info(f'Batimetria fusionada correctamente. '
+                     f'Dimensiones: {b_total.lon_raw.shape}. Latitud: {b_total.lat_raw.min()} - {b_total.lat_raw.max()}. Longitud: {b_total.lon_raw.min()} - {b_total.lon_raw.max()}. '
+                     f'Profundidad: {b_total.elevation_raw.min()} - {b_total.elevation_raw.max()}.')
 
         return b_total
 
