@@ -111,32 +111,45 @@ class Bathymetry:
                          f'Dimensiones: {self.lon_raw.shape}. Latitud: {self.lat_raw.min()} - {self.lat_raw.max()}. Longitud: {self.lon_raw.min()} - {self.lon_raw.max()}. '
                          f'Profundidad: {np.nanmin(self.elevation_raw)} - {np.nanmax(self.elevation_raw)}.')
 
-    def to_mesh(self, size_mesh=200):
+    def to_mesh(self, size_mesh=200, interp=True):
         """ Interpola la bathymetry general a una malla.
-        :param size_mesh: Tamaño de la malla."""
-        self.logger.info(f'Pasar batimetria a malla. Tamaño: {size_mesh}.')
+        :param size_mesh: Tamaño de la malla.
+        :param interp: Interpolar la bathymetry."""
 
-        lon = np.linspace(self.lon_raw.min(), self.lon_raw.max(), size_mesh)
-        lat = np.linspace(self.lat_raw.min(), self.lat_raw.max(), size_mesh)
-        self.lon_mesh, self.lat_mesh = np.meshgrid(lon, lat)
-        self.dlon = np.unique(np.diff(lon)).max()
-        self.dlat = np.unique(np.diff(lat)).max()
+        if interp:
+            self.logger.info(f'Pasar batimetria a malla. Tamaño: {size_mesh}.')
 
-        # Criterio: 300K en 200x200 = 8s de computo
-        step_bathymetry = 1
-        criterio = len(self.lon_raw) / step_bathymetry
-        while criterio > 300000:
-            step_bathymetry += 1
+            lon = np.linspace(self.lon_raw.min(), self.lon_raw.max(), size_mesh)
+            lat = np.linspace(self.lat_raw.min(), self.lat_raw.max(), size_mesh)
+            self.lon_mesh, self.lat_mesh = np.meshgrid(lon, lat)
+            self.dlon = np.unique(np.diff(lon)).max()
+            self.dlat = np.unique(np.diff(lat)).max()
+
+            # Criterio: 300K en 200x200 = 8s de computo
+            step_bathymetry = 1
             criterio = len(self.lon_raw) / step_bathymetry
-        self.logger.info(f'Paso de la batimetria: {step_bathymetry}. Criterio: {criterio}.')
+            while criterio > 300000:
+                step_bathymetry += 1
+                criterio = len(self.lon_raw) / step_bathymetry
+            self.logger.info(f'Paso de la batimetria: {step_bathymetry}. Criterio: {criterio}.')
 
-        self.logger.info('Interpolando batimetria...')
-        self.elevation_mesh = griddata((self.lon_raw[0:-1:step_bathymetry], self.lat_raw[0:-1:step_bathymetry]),
-                                       self.elevation_raw[0:-1:step_bathymetry], (self.lon_mesh, self.lat_mesh))
+            self.logger.info('Interpolando batimetria...')
+            self.elevation_mesh = griddata((self.lon_raw[0:-1:step_bathymetry], self.lat_raw[0:-1:step_bathymetry]),
+                                           self.elevation_raw[0:-1:step_bathymetry], (self.lon_mesh, self.lat_mesh))
 
-        self.logger.info(f'Batimetria interpolada correctamente. '
-                         f'Dimensiones: {self.lon_mesh.shape}. Latitud: {self.lat_mesh.min()} - {self.lat_mesh.max()}. Longitud: {self.lon_mesh.min()} - {self.lon_mesh.max()}. '
-                         f'Profundidad: {np.nanmin(self.elevation_mesh)} - {np.nanmax(self.elevation_mesh)}.')
+            self.logger.info(f'Batimetria interpolada correctamente. '
+                             f'Dimensiones: {self.lon_mesh.shape}. Latitud: {self.lat_mesh.min()} - {self.lat_mesh.max()}. Longitud: {self.lon_mesh.min()} - {self.lon_mesh.max()}. '
+                             f'Profundidad: {np.nanmin(self.elevation_mesh)} - {np.nanmax(self.elevation_mesh)}.')
+        else:
+            size_mesh = int(np.sqrt(len(self.lon_raw)))
+            self.logger.info(f'Pasar batimetria a malla. Tamaño: {size_mesh}.')
+
+            self.lon_mesh = self.lon_raw.reshape(size_mesh, size_mesh)
+            self.lat_mesh = self.lat_raw.reshape(size_mesh, size_mesh)
+            self.elevation_mesh = self.elevation_raw.reshape(size_mesh, size_mesh)
+
+            self.logger.info(f'Batimetria pasada a malla correctamente. ')
+
 
     def save_mesh(self, file_general_path, in_utm=False):
         """ Guarda la bathymetry general en un archivo .dat.
