@@ -91,7 +91,7 @@ class Bathymetry:
                 raise ValueError('El archivo {:s} no es valido.'.format(file_path))
 
         self.logger.info(f'Archivo cargado correctamente. '
-                         f'Dimensiones: {self.lon_raw.shape}. Latitud: {self.lat_raw.min()} - {self.lat_raw.max()}. Longitud: {self.lon_raw.min()} - {self.lon_mesh.max()}. '
+                         f'Dimensiones: {self.lon_raw.shape}. Latitud: {self.lat_raw.min()} - {self.lat_raw.max()}. Longitud: {self.lon_raw.min()} - {self.lon_raw.max()}. '
                          f'Profundidad: {np.nanmin(self.elevation_raw)} - {np.nanmax(self.elevation_raw)}.')
 
     def filter(self, lon_min, lat_min, lon_max, lat_max):
