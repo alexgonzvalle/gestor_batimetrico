@@ -6,10 +6,14 @@ from Bathymetry.bathymetry import Bathymetry
 # b.to_mesh(200)
 # b.plot(as_contourf=True)
 
-b_d = Bathymetry(r'C:\Users\gonzalezva\Downloads\Jounie_LB__Dedalo2023.WGS84_UTMh36N.dat', zn_huso=36, zd_huso='N')
-b_d.to_mesh(300)
-b_d.plot(as_contourf=True, cmap='viridis')
-
+b_d = Bathymetry(30, 'N')
+# b_d.load_file(r'D:\Development\repos\manager_ifc\test\data\gebco_2023_cartagena.nc')
+# b_d.load_file(r'D:\Development\repos\manager_ifc\test\data\Dique_Ejemplo.dat')
+b_d.load_file(r'D:\Development\repos\manager_ifc\test\data\bati_climport.dat')
+b_d.to_mesh(500)
+# b_d.elevation_mesh[b_d.elevation_mesh > 10] = 10
+b_d.plot(as_contourf=True, cmap='viridis', num_levels=50)
+# b_d.plot_3d()
 
 # b.plot_check_fusionate(b_d)
 # b_t = b.fusionate(b_d)

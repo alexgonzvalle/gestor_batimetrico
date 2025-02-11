@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import utm
 import xarray as xr
@@ -150,7 +149,6 @@ class Bathymetry:
 
             self.logger.info(f'Batimetria pasada a malla correctamente. ')
 
-
     def save_mesh(self, file_general_path, in_utm=False):
         """ Guarda la bathymetry general en un archivo .dat.
         :param in_utm: Guarda en UTM."""
@@ -197,10 +195,16 @@ class Bathymetry:
 
         return b_total
 
-    def plot(self, as_contourf=False, cmap='Blues_r'):
+    def plot(self, as_contourf=False, cmap='Blues_r', num_levels=20):
         """Grafica la batimetria.
         :param as_contourf: Grafica como contourf.
         :param cmap: Colormap."""
+
+        def fmt(x):
+            s = f"{x:.1f}"
+            if s.endswith("0"):
+                s = f"{x:.0f}"
+            return rf"{s} m" if plt.rcParams["text.usetex"] else f"{s} m"
 
         if self.lon_mesh is not None:
             elevation = self.elevation_mesh.copy() * -1
@@ -209,11 +213,17 @@ class Bathymetry:
             ax.set_title('Batimetria')
             ax.set_xlabel('Lon')
             ax.set_ylabel('Lat')
-            ax.set_aspect('equal')
+            # ax.set_aspect('equal')
+
+            # Crear niveles adicionales
+            levels = np.linspace(np.nanmin(elevation), np.nanmax(elevation), num_levels)
+
             if as_contourf:
-                pc = ax.contourf(self.lon_mesh, self.lat_mesh, elevation, cmap=cmap)
+                pc = ax.contourf(self.lon_mesh, self.lat_mesh, elevation, levels=levels, cmap=cmap, extend='both')
+                _pc = ax.contour(self.lon_mesh, self.lat_mesh, elevation, levels=levels,  colors=('k',))
+                ax.clabel(_pc, _pc.levels, fmt=fmt, fontsize=10, colors='w')
             else:
-                pc = ax.pcolor(self.lon_mesh, self.lat_mesh, elevation,
+                pc = ax.pcolor(self.lon_mesh, self.lat_mesh, elevation, levels=levels,
                                cmap=cmap, shading='auto', edgecolors="k", linewidth=0.5)
 
             cbar = fig.colorbar(pc)
