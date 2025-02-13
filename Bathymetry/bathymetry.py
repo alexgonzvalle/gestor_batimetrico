@@ -93,6 +93,46 @@ class Bathymetry:
                          f'Dimensiones: {self.lon_raw.shape}. Latitud: {self.lat_raw.min()} - {self.lat_raw.max()}. Longitud: {self.lon_raw.min()} - {self.lon_raw.max()}. '
                          f'Profundidad: {np.nanmin(self.elevation_raw)} - {np.nanmax(self.elevation_raw)}.')
 
+    def load_url(self, url_path, lon_min=None, lon_max=None, lat_min=None, lat_max=None, fname_save=''):
+        """ Carga la bathymetry general.
+                :param url_path: URL del archivo."""
+
+        self.logger.info(f'Cargando archivo {url_path}')
+
+        if url_path != '':
+            ds = xr.open_dataset(url_path)
+
+            # Buscar las coordenadas más cercanas a los límites
+            lon_min_nearest = ds.sel(lon=lon_min, method="nearest").lon.item()
+            lon_max_nearest = ds.sel(lon=lon_max, method="nearest").lon.item()
+            lat_min_nearest = ds.sel(lat=lat_min, method="nearest").lat.item()
+            lat_max_nearest = ds.sel(lat=lat_max, method="nearest").lat.item()
+
+            # Realizar el recorte
+            recorte = ds.sel(
+                lon=slice(lon_min_nearest, lon_max_nearest),
+                lat=slice(lat_min_nearest, lat_max_nearest)
+            )
+
+            if fname_save != '':
+                recorte.to_netcdf(fname_save)
+
+            lat_nc = np.squeeze(recorte.lat.data)
+            lon_nc = np.squeeze(recorte.lon.data)
+            self.lon_mesh, self.lat_mesh = np.meshgrid(lon_nc, lat_nc)
+            self.lon_raw = self.lon_mesh.ravel()
+            self.lat_raw = self.lat_mesh.ravel()
+
+            self.elevation_mesh = - np.squeeze(recorte.elevation.data)
+            self.elevation_raw = self.elevation_mesh.ravel()
+        else:
+            self.logger.error('El archivo {:s} no es valido.'.format(url_path))
+            raise ValueError('El archivo {:s} no es valido.'.format(url_path))
+
+        self.logger.info(f'Archivo cargado correctamente. '
+                         f'Dimensiones: {self.lon_raw.shape}. Latitud: {self.lat_raw.min()} - {self.lat_raw.max()}. Longitud: {self.lon_raw.min()} - {self.lon_raw.max()}. '
+                         f'Profundidad: {np.nanmin(self.elevation_raw)} - {np.nanmax(self.elevation_raw)}.')
+
     def filter(self, lon_min, lat_min, lon_max, lat_max):
         """ Filtra la bathymetry general.
         :param lon_min: Longitud minima.
