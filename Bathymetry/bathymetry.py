@@ -64,7 +64,7 @@ class Bathymetry:
                 data = np.loadtxt(file_path)
                 x = np.array(data[:, 0])
                 y = np.array(data[:, 1])
-                elevation = -np.array(data[:, 2])
+                elevation = np.array(data[:, 2])
 
                 if self.zn_huso is not None and self.zd_huso is not None:
                     y, x = utm.to_latlon(x, y, self.zn_huso, self.zd_huso)
