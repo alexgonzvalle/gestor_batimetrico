@@ -60,11 +60,12 @@ class Bathymetry:
 
             if type_file == 'nc':
                 self.ds = xr.open_dataset(file_path)
+                self.ds.elevation *= -1
             elif type_file == 'dat' or type_file == 'xyz':
                 data = np.loadtxt(file_path)
                 x = np.array(data[:, 0])
                 y = np.array(data[:, 1])
-                elevation = np.array(data[:, 2])
+                elevation = -np.array(data[:, 2])
 
                 if self.zn_huso is not None and self.zd_huso is not None:
                     y, x = utm.to_latlon(x, y, self.zn_huso, self.zd_huso)
