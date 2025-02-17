@@ -48,7 +48,7 @@ class Bathymetry:
 
         self.ds = None
 
-    def load_file(self, file_path, size_mesh=200):
+    def load_file(self, file_path, size_mesh=200, z_neg=False):
         """ Carga la bathymetry general.
         :param file_path: Ruta del archivo."""
 
@@ -60,7 +60,6 @@ class Bathymetry:
 
             if type_file == 'nc':
                 self.ds = xr.open_dataset(file_path)
-                self.ds.elevation.values *= -1
             elif type_file == 'dat' or type_file == 'xyz':
                 data = np.loadtxt(file_path)
                 x = np.array(data[:, 0])
@@ -83,6 +82,9 @@ class Bathymetry:
             else:
                 self.logger.error('El archivo {:s} no es valido.'.format(file_path))
                 raise ValueError('El archivo {:s} no es valido.'.format(file_path))
+
+            if z_neg:
+                self.ds.elevation *= -1
 
         self.logger.info(f'Archivo cargado correctamente. '
                          f'Dimensiones: {self.ds.lon.shape}. Latitud: {self.ds.lat.min()} - {self.ds.lat.max()}. Longitud: {self.ds.lon.min()} - {self.ds.lon.max()}. '
