@@ -60,7 +60,7 @@ class Bathymetry:
 
             if type_file == 'nc':
                 self.ds = xr.open_dataset(file_path)
-                self.ds.elevation *= -1
+                self.ds.elevation.values *= -1
             elif type_file == 'dat' or type_file == 'xyz':
                 data = np.loadtxt(file_path)
                 x = np.array(data[:, 0])
