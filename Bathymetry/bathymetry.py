@@ -48,7 +48,7 @@ class Bathymetry:
 
         self.ds = None
 
-    def load_file(self, file_path, size_mesh=200, z_neg=False):
+    def load_file(self, file_path, size_mesh=200, z_neg=True):
         """ Carga la bathymetry general.
         :param file_path: Ruta del archivo."""
 
