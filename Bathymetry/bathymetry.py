@@ -84,7 +84,7 @@ class Bathymetry:
                 raise ValueError('El archivo {:s} no es valido.'.format(file_path))
 
             if z_neg:
-                self.ds.elevation *= -1
+                self.ds.elevation.values *= -1
 
         self.logger.info(f'Archivo cargado correctamente. '
                          f'Dimensiones: {self.ds.lon.shape}. Latitud: {self.ds.lat.min()} - {self.ds.lat.max()}. Longitud: {self.ds.lon.min()} - {self.ds.lon.max()}. '
