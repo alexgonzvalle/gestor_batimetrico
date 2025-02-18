@@ -192,10 +192,15 @@ class Bathymetry:
 
         b_total = Bathymetry()
 
-        # Usar datos de detalle donde estén disponibles; en caso contrario, usar general
-        ds_fusionado = self.ds.combine_first(b_detail.ds)
+        # Interpolar detalle a las coordenadas de general
+        ds_detalle_interp = b_detail.ds.interp(lon=self.ds.lon, lat=self.ds.lat, method='nearest')
 
-        b_total.ds = ds_fusionado
+        # Sustituir los valores de elevación del general con los del detalle donde detalle no es NaN
+        elevation_fusionada = xr.where(ds_detalle_interp.elevation.notnull(), ds_detalle_interp.elevation, self.ds.elevation)
+
+        # Crear un nuevo dataset con la elevación fusionada
+        b_total.ds = self.ds.copy()
+        b_total.ds['elevation'] = elevation_fusionada
 
         self.logger.info(f'Batimetria fusionada correctamente. '
                          f'Dimensiones: {b_total.ds.lon.shape}. '
