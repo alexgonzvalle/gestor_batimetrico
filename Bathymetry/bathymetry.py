@@ -137,9 +137,9 @@ class Bathymetry:
 
             lon = np.linspace(x.min(), x.max(), size_mesh)
             lat = np.linspace(y.min(), y.max(), size_mesh)
+            lon_mesh, lat_mesh = np.meshgrid(lon, lat)
         else:
-            lon, lat = x, y
-        lon_mesh, lat_mesh = np.meshgrid(lon, lat)
+            lon_mesh, lat_mesh = x, y
 
         # Criterio: 300K en 200x200 = 8s de computo
         step_bathymetry = 1
@@ -158,7 +158,9 @@ class Bathymetry:
 
         return lon, lat, elevation_mesh
 
-    def save_nc(self, fname_save):
+    def save_nc(self, fname_save, in_utm=False):
+        if in_utm:
+            self.ds.lon.values, self.ds.lat.values, _, _ = utm.from_latlon(self.ds.lat.values, self.ds.lon.values)
         self.ds.to_netcdf(fname_save)
         self.logger.info(f'Guardada batimetria. {fname_save}')
 
