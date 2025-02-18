@@ -205,9 +205,20 @@ class Bathymetry:
 
         # Fusionar bathymetry con bathynetry de detalle
         self.logger.info('Fusionando batimetria general con batimetria de detalle...')
-        b_total.ds.lat = np.hstack((lat_raw, lat_nested))
-        b_total.ds.lon = np.hstack((lon_raw, lon_nested))
-        b_total.ds.elevation = np.hstack((elevation_raw, b_detail.ds.elevation.values.ravel()))
+        lat_res = np.hstack((lat_raw, lat_nested))
+        lon_res = np.hstack((lon_raw, lon_nested))
+        elevation_res = np.hstack((elevation_raw, b_detail.ds.elevation.values.ravel()))
+        lon, lat, elevation_mesh = self.to_mesh(lon_res, lat_res, elevation_res)
+        b_total.ds = xr.Dataset(
+            {
+                "elevation": (["lat", "lon"], elevation_mesh)  # Variable z con dimensiones y, x
+            },
+            coords={
+                "lon": lon,  # Coordenadas x
+                "lat": lat  # Coordenadas y
+            }
+        )
+
 
         self.logger.info(f'Batimetria fusionada correctamente. '
                          f'Dimensiones: {b_total.ds.lon.shape}. '
