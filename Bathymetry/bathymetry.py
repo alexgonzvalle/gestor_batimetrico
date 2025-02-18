@@ -192,11 +192,8 @@ class Bathymetry:
 
         b_total = Bathymetry()
 
-        # Reindexar ds a las coordenadas de detalle
-        ds_interp = self.ds.interp(lon=b_detail.ds.lon, lat=b_detail.ds.lat, method='nearest')
-
         # Usar datos de detalle donde estén disponibles; en caso contrario, usar general
-        ds_fusionado = b_detail.ds.combine_first(ds_interp)
+        ds_fusionado = self.ds.combine_first(b_detail.ds)
 
         b_total.ds = ds_fusionado
 
@@ -205,6 +202,8 @@ class Bathymetry:
                          f'Latitud: {b_total.ds.lat.values.min()} - {b_total.ds.lat.values.max()}. '
                          f'Longitud: {b_total.ds.lon.values.min()} - {b_total.ds.lon.values.max()}. '
                          f'Profundidad: {np.nanmin(b_total.ds.elevation)} - {np.nanmax(b_total.ds.elevation)}.')
+
+        self.ds.close()
 
         return b_total
 
