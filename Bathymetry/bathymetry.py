@@ -48,7 +48,7 @@ class Bathymetry:
 
         self.ds = None
 
-    def load_file(self, file_path, size_mesh=200, z_neg=True):
+    def load_file(self, file_path, size_mesh=None, z_neg=True):
         """ Carga la bathymetry general.
         :param file_path: Ruta del archivo."""
 
@@ -128,14 +128,17 @@ class Bathymetry:
                          f'Dimensiones: {self.ds.lon.shape}. Latitud: {self.ds.lat.min()} - {self.ds.lat.max()}. Longitud: {self.ds.lon.min()} - {self.ds.lon.max()}. '
                          f'Profundidad: {np.nanmin(self.ds.elevation)} - {np.nanmax(self.ds.elevation)}.')
 
-    def to_mesh(self, x, y, elevation, size_mesh=200):
+    def to_mesh(self, x, y, elevation, size_mesh=None):
         """ Interpola la bathymetry general a una malla.
         :param size_mesh: Tamaño de la malla."""
 
-        self.logger.info(f'Pasar batimetria a malla. Tamaño: {size_mesh}.')
+        if size_mesh is not None:
+            self.logger.info(f'Pasar batimetria a malla. Tamaño: {size_mesh}.')
 
-        lon = np.linspace(x.min(), x.max(), size_mesh)
-        lat = np.linspace(y.min(), y.max(), size_mesh)
+            lon = np.linspace(x.min(), x.max(), size_mesh)
+            lat = np.linspace(y.min(), y.max(), size_mesh)
+        else:
+            lon, lat = x, y
         lon_mesh, lat_mesh = np.meshgrid(lon, lat)
 
         # Criterio: 300K en 200x200 = 8s de computo
