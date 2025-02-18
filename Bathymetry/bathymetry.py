@@ -158,9 +158,7 @@ class Bathymetry:
 
         return lon, lat, elevation_mesh
 
-    def save_nc(self, fname_save, in_utm=False):
-        if in_utm:
-            self.ds.lon.values, self.ds.lat.values, _, _ = utm.from_latlon(self.ds.lat.values, self.ds.lon.values)
+    def save_nc(self, fname_save):
         self.ds.to_netcdf(fname_save)
         self.logger.info(f'Guardada batimetria. {fname_save}')
 
