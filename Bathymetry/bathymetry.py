@@ -192,36 +192,13 @@ class Bathymetry:
 
         b_total = Bathymetry()
 
-        lon_mesh, lat_mesh = np.meshgrid(self.ds.lon.values, self.ds.lat.values)
-        lon_main, lat_main = lon_mesh.ravel(), lat_mesh.ravel()
+        # Reindexar ds a las coordenadas de detalle
+        ds_interp = self.ds.interp(lon=b_detail.ds.lon, lat=b_detail.ds.lat, method='nearest')
 
-        lon_mesh, lat_mesh = np.meshgrid(b_detail.ds.lon.values, b_detail.ds.lat.values)
-        lon_nested, lat_nested = lon_mesh.ravel(), lat_mesh.ravel()
+        # Usar datos de detalle donde estén disponibles; en caso contrario, usar general
+        ds_fusionado = b_detail.ds.combine_first(ds_interp)
 
-        # Quitar de bathymetry la bathynetry de detalle
-        self.logger.info('Quitando de la batimetria general la batimetria de detalle...')
-        s = np.logical_and(np.logical_and(lon_main >= lon_nested.min(), lon_main <= lon_nested.max()),
-                           np.logical_and(lat_main >= lat_nested.min(), lat_main <= lat_nested.max()))
-        lon_raw = np.delete(lon_main, s)
-        lat_raw = np.delete(lat_main, s)
-        elevation_raw = np.delete(self.ds.elevation.values.ravel(), s)
-
-        # Fusionar bathymetry con bathynetry de detalle
-        self.logger.info('Fusionando batimetria general con batimetria de detalle...')
-        lat_res = np.hstack((lat_raw, lat_nested))
-        lon_res = np.hstack((lon_raw, lon_nested))
-        elevation_res = np.hstack((elevation_raw, b_detail.ds.elevation.values.ravel()))
-        lon, lat, elevation_mesh = self.to_mesh(lon_res, lat_res, elevation_res)
-        b_total.ds = xr.Dataset(
-            {
-                "elevation": (["lat", "lon"], elevation_mesh)  # Variable z con dimensiones y, x
-            },
-            coords={
-                "lon": lon,  # Coordenadas x
-                "lat": lat  # Coordenadas y
-            }
-        )
-
+        b_total.ds = ds_fusionado
 
         self.logger.info(f'Batimetria fusionada correctamente. '
                          f'Dimensiones: {b_total.ds.lon.shape}. '
