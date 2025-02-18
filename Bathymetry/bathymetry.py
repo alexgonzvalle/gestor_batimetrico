@@ -189,23 +189,31 @@ class Bathymetry:
 
         b_total = Bathymetry()
 
+        lon_mesh, lat_mesh = np.meshgrid(self.ds.lon.values, self.ds.lat.values)
+        lon_main, lat_main = lon_mesh.ravel(), lat_mesh.ravel()
+
+        lon_mesh, lat_mesh = np.meshgrid(b_detail.ds.lon.values, b_detail.ds.lat.values)
+        lon_nested, lat_nested = lon_mesh.ravel(), lat_mesh.ravel()
+
         # Quitar de bathymetry la bathynetry de detalle
         self.logger.info('Quitando de la batimetria general la batimetria de detalle...')
-        s = np.logical_and(np.logical_and(self.ds.lon >= b_detail.ds.lon.min(), self.ds.lon <= b_detail.ds.lon.max()),
-                           np.logical_and(self.ds.lat >= b_detail.ds.lat.min(), self.ds.lat <= b_detail.ds.lat.max()))
-        lon_raw = np.delete(self.ds.lon, s)
-        lat_raw = np.delete(self.ds.lat, s)
-        elevation_raw = np.delete(self.ds.elevation, s)
+        s = np.logical_and(np.logical_and(lon_main >= lon_nested.min(), lon_main <= lon_nested.max()),
+                           np.logical_and(lat_main >= lat_nested.min(), lat_main <= lat_nested.max()))
+        lon_raw = np.delete(lon_main, s)
+        lat_raw = np.delete(lat_main, s)
+        elevation_raw = np.delete(self.ds.elevation.values.ravel(), s)
 
         # Fusionar bathymetry con bathynetry de detalle
         self.logger.info('Fusionando batimetria general con batimetria de detalle...')
-        b_total.ds.lat = np.hstack((lat_raw, b_detail.ds.lat))
-        b_total.ds.lon = np.hstack((lon_raw, b_detail.ds.lon))
-        b_total.ds.elevation = np.hstack((elevation_raw, b_detail.ds.elevation))
+        b_total.ds.lat = np.hstack((lat_raw, lat_nested))
+        b_total.ds.lon = np.hstack((lon_raw, lon_nested))
+        b_total.ds.elevation = np.hstack((elevation_raw, b_detail.ds.elevation.values.ravel()))
 
         self.logger.info(f'Batimetria fusionada correctamente. '
-                         f'Dimensiones: {self.ds.lon.shape}. Latitud: {self.ds.lat.min()} - {self.ds.lat.max()}. Longitud: {self.ds.lon.min()} - {self.ds.lon.max()}. '
-                         f'Profundidad: {np.nanmin(self.ds.elevation)} - {np.nanmax(self.ds.elevation)}.')
+                         f'Dimensiones: {b_total.ds.lon.shape}. '
+                         f'Latitud: {b_total.ds.lat.values.min()} - {b_total.ds.lat.values.max()}. '
+                         f'Longitud: {b_total.ds.lon.values.min()} - {b_total.ds.lon.values.max()}. '
+                         f'Profundidad: {np.nanmin(b_total.ds.elevation)} - {np.nanmax(b_total.ds.elevation)}.')
 
         return b_total
 
