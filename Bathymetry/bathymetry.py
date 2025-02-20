@@ -140,6 +140,7 @@ class Bathymetry:
             lon_mesh, lat_mesh = np.meshgrid(lon, lat)
         else:
             lon_mesh, lat_mesh = x, y
+            lon, lat = lon_mesh[0], lat_mesh[:, 0]
 
         # Criterio: 300K en 200x200 = 8s de computo
         step_bathymetry = 1
