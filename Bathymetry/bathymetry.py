@@ -213,7 +213,7 @@ class Bathymetry:
 
         return b_total
 
-    def plot(self, as_contourf=False, cmap='Blues_r', num_levels=20):
+    def plot(self, as_contourf=False, cmap='Blues_r', num_levels=20, _ax=None):
         """Grafica la batimetria.
         :param as_contourf: Grafica como contourf.
         :param cmap: Colormap."""
@@ -228,42 +228,54 @@ class Bathymetry:
         lon_mesh, lat_mesh = np.meshgrid(lon, lat)
         elevation = self.ds.elevation.values.copy() * -1
 
-        fig, ax = plt.subplots()
-        ax.set_title('Batimetria')
-        ax.set_xlabel('Lon')
-        ax.set_ylabel('Lat')
-        ax.set_aspect('equal')
+        _show = False
+        if _ax is None:
+            fig, _ax = plt.subplots()
+            _show = True
+
+        _ax.set_title('Batimetria')
+        _ax.set_xlabel('Lon')
+        _ax.set_ylabel('Lat')
+        _ax.set_aspect('equal')
 
         # Crear niveles adicionales
         levels = np.linspace(np.nanmin(elevation), np.nanmax(elevation), num_levels)
 
         if as_contourf:
-            pc = ax.contourf(lon_mesh, lat_mesh, elevation, levels=levels, cmap=cmap, extend='both')
-            _pc = ax.contour(lon_mesh, lat_mesh, elevation, levels=levels,  colors=('k',))
-            ax.clabel(_pc, _pc.levels, fmt=fmt, fontsize=10, colors='w')
+            pc = _ax.contourf(lon_mesh, lat_mesh, elevation, levels=levels, cmap=cmap, extend='both')
+            _pc = _ax.contour(lon_mesh, lat_mesh, elevation, levels=levels,  colors=('k',))
+            _ax.clabel(_pc, _pc.levels, fmt=fmt, fontsize=10, colors='w')
         else:
-            pc = ax.pcolor(lon_mesh, lat_mesh, elevation, levels=levels,
+            pc = _ax.pcolor(lon_mesh, lat_mesh, elevation, levels=levels,
                            cmap=cmap, shading='auto', edgecolors="k", linewidth=0.5)
 
-        cbar = fig.colorbar(pc)
+        cbar = _ax.figure.colorbar(pc)
         cbar.set_label("(m)", labelpad=-0.1)
-        plt.show()
 
-    def plot_3d(self):
+        if _show:
+            plt.show()
+
+    def plot_3d(self, _ax=None):
         """Grafica la batimetria en 3D."""
 
         lat, lon = self.ds.lat.values, self.ds.lon.values
         lon_mesh, lat_mesh = np.meshgrid(lon, lat)
         elevation = self.ds.elevation.values.copy() * -1
 
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        ax.view_init(50, 135)
-        ax.plot_surface(lon_mesh, lat_mesh, elevation, cmap='Blues_r')
-        ax.set_xlabel('Lon')
-        ax.set_ylabel('Lat')
-        ax.set_zlabel('Elevation')
-        plt.show()
+        _show = False
+        if _ax is None:
+            fig = plt.figure()
+            _ax = fig.add_subplot(111, projection='3d')
+            _show = True
+
+        _ax.view_init(50, 135)
+        _ax.plot_surface(lon_mesh, lat_mesh, elevation, cmap='Blues_r')
+        _ax.set_xlabel('Lon')
+        _ax.set_ylabel('Lat')
+        _ax.set_zlabel('Elevation')
+
+        if _show:
+            plt.show()
 
     def plot_perfil_ortogonal(self, coord_lon, coord_lat, lbl_z=''):
         """ Grafica el perfil ortogonal de la bathymetry general.
