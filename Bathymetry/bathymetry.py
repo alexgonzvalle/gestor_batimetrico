@@ -226,7 +226,7 @@ class Bathymetry:
 
         lat, lon = self.ds.lat.values, self.ds.lon.values
         lon_mesh, lat_mesh = np.meshgrid(lon, lat)
-        elevation = self.ds.elevation.values.copy() * -1
+        elevation = np.squeeze(self.ds.elevation.values.copy()) * -1
 
         _show = False
         if _ax is None:
@@ -260,7 +260,7 @@ class Bathymetry:
 
         lat, lon = self.ds.lat.values, self.ds.lon.values
         lon_mesh, lat_mesh = np.meshgrid(lon, lat)
-        elevation = self.ds.elevation.values.copy() * -1
+        elevation = np.squeeze(self.ds.elevation.values.copy()) * -1
 
         _show = False
         if _ax is None:
