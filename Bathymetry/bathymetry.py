@@ -213,7 +213,7 @@ class Bathymetry:
 
         return b_total
 
-    def plot(self, as_contourf=False, cmap='Blues_r', num_levels=20, aux_tile='', _ax=None):
+    def plot(self, as_contourf=False, cmap='Blues_r', num_levels=20, aux_title='', _ax=None):
         """Grafica la batimetria.
         :param as_contourf: Grafica como contourf.
         :param cmap: Colormap."""
@@ -233,7 +233,7 @@ class Bathymetry:
             fig, _ax = plt.subplots()
             _show = True
 
-        _ax.set_title(f'Batimetria {aux_tile}')
+        _ax.set_title(f'Batimetria {aux_title}')
         _ax.set_xlabel('Lon')
         _ax.set_ylabel('Lat')
         _ax.set_aspect('equal')
