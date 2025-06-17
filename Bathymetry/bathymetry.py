@@ -105,6 +105,14 @@ class Bathymetry:
         self.logger.info(f'Archivo cargado correctamente. '
                          f'Latitud: {self.ds.lat.values.min()} - {self.ds.lat.values.max()}. Longitud: {self.ds.lon.values.min()} - {self.ds.lon.values.max()}. ')
 
+    def set_proj(self):
+        lat, lon = self.ds.lat.values, self.ds.lon.values
+        if len(lat) > 0 and len(lon) > 0:
+            _, _, self.zn_huso, self.zd_huso = utm.from_latlon(self.ds.lat.values, self.ds.lon.values)
+            self.zd_huso = 'N' if self.zd_huso in ['X', 'W', 'V', 'U', 'T', 'S', 'R', 'Q', 'P', 'N'] else 'S' if self.zd_huso in ['M', 'L', 'K', 'J', 'H', 'G', 'F', 'E', 'D', 'C'] else ''
+        else:
+            self.zn_huso, self.zd_huso = 30, 'N'
+
     def cut(self, lon_min, lat_min, lon_max, lat_max):
         """ Filtra la bathymetry general.
         :param lon_min: Longitud minima.
