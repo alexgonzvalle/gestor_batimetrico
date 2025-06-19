@@ -168,6 +168,15 @@ class Bathymetry:
         return lon, lat, elevation_mesh
 
     def save_nc(self, fname_save):
+        missing_value = self.ds['elevation'].attrs.get('missing_value', None)
+        fill_value = self.ds['elevation'].attrs.get('_FillValue', None)
+        if missing_value is None and fill_value is None:
+            self.ds['elevation'].attrs['missing_value'] = np.nan
+            self.ds['elevation'].attrs['_FillValue'] = np.nan
+        elif missing_value is None:
+            self.ds['elevation'].attrs['missing_value'] = fill_value
+        elif fill_value is None:
+            self.ds['elevation'].attrs['_FillValue'] = missing_value
         self.ds.to_netcdf(fname_save)
         self.logger.info(f'Guardada batimetria. {fname_save}')
 
