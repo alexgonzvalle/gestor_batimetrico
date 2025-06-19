@@ -179,9 +179,9 @@ class Bathymetry:
             self.ds['elevation'].attrs['_FillValue'] = missing_value
         elif missing_value != fill_value:
             if np.isnan(missing_value):
-                self.ds['elevation'].attrs['missing_value'] = fill_value
-            elif np.isnan(fill_value):
                 self.ds['elevation'].attrs['_FillValue'] = missing_value
+            elif np.isnan(fill_value):
+                self.ds['elevation'].attrs['missing_value'] = fill_value
         self.ds.to_netcdf(fname_save)
         self.logger.info(f'Guardada batimetria. {fname_save}')
 
