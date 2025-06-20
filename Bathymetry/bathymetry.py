@@ -170,12 +170,9 @@ class Bathymetry:
     def save_nc(self, fname_save):
         missing_value = self.ds['elevation'].attrs.get('missing_value', None)
         fill_value = self.ds['elevation'].attrs.get('_FillValue', None)
-        if missing_value is None and fill_value is None:
-            self.ds['elevation'].attrs['missing_value'] = np.nan
-            self.ds['elevation'].attrs['_FillValue'] = np.nan
-        elif missing_value is None:
+        if missing_value is None and fill_value is not None:
             self.ds['elevation'].attrs['missing_value'] = fill_value
-        elif fill_value is None:
+        elif missing_value is not None and fill_value is None:
             self.ds['elevation'].attrs['_FillValue'] = missing_value
         elif missing_value != fill_value:
             if np.isnan(missing_value):
