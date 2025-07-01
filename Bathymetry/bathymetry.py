@@ -4,7 +4,7 @@ import xarray as xr
 from scipy.interpolate import griddata
 import logging
 
-from matplotlib import pyplot as plt, ticker, patches
+from matplotlib import pyplot as plt, ticker, patches, cm, colors
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
@@ -236,12 +236,12 @@ class Bathymetry:
     def plot(self, cmap='seismic', step_beriles=None, aux_title='', _ax=None):
         def get_colors_cmap(name_cmap, ncolors=None):
             colors = []
-            cmap = matplotlib.cm.get_cmap(name_cmap)
+            cmap = cm.get_cmap(name_cmap)
             if ncolors is None:
                 ncolors = cmap.N
             for i in range(0, cmap.N, int(cmap.N / ncolors)):
                 rgba = cmap(i)
-                colors.append(matplotlib.colors.rgb2hex(rgba))
+                colors.append(colors.rgb2hex(rgba))
 
             return colors
 
