@@ -4,7 +4,7 @@ import xarray as xr
 from scipy.interpolate import griddata
 import logging
 
-from matplotlib import pyplot as plt, ticker, patches, cm, colors
+from matplotlib import pyplot as plt, ticker, patches, cm, colors as colors_matplotlib
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
@@ -241,7 +241,7 @@ class Bathymetry:
                 ncolors = cmap.N
             for i in range(0, cmap.N, int(cmap.N / ncolors)):
                 rgba = cmap(i)
-                colors.append(colors.rgb2hex(rgba))
+                colors.append(colors_matplotlib.rgb2hex(rgba))
 
             return colors
 
