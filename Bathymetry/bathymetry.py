@@ -233,7 +233,18 @@ class Bathymetry:
 
         return b_total
 
-    def plot(self, as_contourf=False, cmap='Blues_r', num_levels=20, aux_title='', _ax=None):
+    def plot(self, cmap='seismic', step_berils=None, aux_title='', _ax=None):
+        def get_colors_cmap(name_cmap, ncolors=None):
+            colors = []
+            cmap = matplotlib.cm.get_cmap(name_cmap)
+            if ncolors is None:
+                ncolors = cmap.N
+            for i in range(0, cmap.N, int(cmap.N / ncolors)):
+                rgba = cmap(i)
+                colors.append(matplotlib.colors.rgb2hex(rgba))
+
+            return colors
+
         """Grafica la batimetria.
         :param as_contourf: Grafica como contourf.
         :param cmap: Colormap."""
@@ -259,14 +270,24 @@ class Bathymetry:
         _ax.set_aspect('equal')
 
         # Crear niveles adicionales
-        levels = np.linspace(np.nanmin(elevation), np.nanmax(elevation), num_levels)
+        if step_berils is None:
+            step_berils = int(abs(zmin) / 10)
+        if step_berils > abs(zmin):
+            step_berils = int(abs(zmin) / 2)
+        berils = [i for i in range(-1000000, 0, int(step_berils)) if i > zmin - step_berils]
+        berils.append(0)
+        if len(berils) > 128:
+            berils = berils[-128:]
+        berils = np.concatenate((berils, -np.array(berils[-2::-1])))
+        ncolors = len(berils)
 
-        if as_contourf:
-            pc = _ax.contourf(lon_mesh, lat_mesh, elevation, levels=levels, cmap=cmap, extend='both')
-            _pc = _ax.contour(lon_mesh, lat_mesh, elevation, levels=levels,  colors=('k',))
-            _ax.clabel(_pc, _pc.levels, fmt=fmt, fontsize=10, colors='w')
-        else:
-            pc = _ax.pcolor(lon_mesh, lat_mesh, elevation, levels=levels, cmap=cmap, shading='auto', edgecolors="k", linewidth=0.5)
+        colors = get_colors_cmap(cmap, ncolors=ncolors)
+        colors = [colors[i] for i in range(0, len(colors), int(len(colors) / ncolors))]
+        levels = np.linspace(zmin, zmax, ncolors + 1)
+
+        pc = _ax.contourf(lon_mesh, lat_mesh, elevation, levels=levels, colors=colors, extend='both')
+        _pc = _ax.contour(lon_mesh, lat_mesh, elevation, levels=levels,  colors=('k',))
+        _ax.clabel(_pc, _pc.levels, fmt=fmt, fontsize=10, colors='w')
 
         cbar = _ax.figure.colorbar(pc)
         cbar.set_label("(m)", labelpad=-0.1)
