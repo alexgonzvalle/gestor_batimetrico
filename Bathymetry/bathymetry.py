@@ -272,7 +272,7 @@ class Bathymetry:
         if _show:
             plt.show()
 
-    def plot_3d(self, cmap='seismic', _ax=None):
+    def plot_3d(self, cmap='seismic', step_beriles=None, _ax=None):
         """Grafica la batimetria en 3D."""
 
         lat, lon = self.ds.lat.values, self.ds.lon.values
