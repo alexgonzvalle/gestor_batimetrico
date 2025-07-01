@@ -272,7 +272,7 @@ class Bathymetry:
         if _show:
             plt.show()
 
-    def plot_3d(self, cmap='seismic', step_beriles=None, _ax=None):
+    def plot_3d(self, _ax=None):
         """Grafica la batimetria en 3D."""
 
         lat, lon = self.ds.lat.values, self.ds.lon.values
@@ -285,11 +285,8 @@ class Bathymetry:
             _ax = fig.add_subplot(111, projection='3d')
             _show = True
 
-        zmin = np.nanmin(elevation)
-        beriles, colors = self.colors_by_beriles(zmin, step_beriles, cmap)
-
         _ax.view_init(50, 135)
-        _ax.plot_surface(lon_mesh, lat_mesh, elevation, vmin=min(beriles), vmax=max(beriles))
+        _ax.plot_surface(lon_mesh, lat_mesh, elevation, cmap='Blues_r')
         _ax.set_xlabel('Lon (ª)')
         _ax.set_ylabel('Lat (ª)')
         _ax.set_zlabel('Elevation')
