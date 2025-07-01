@@ -233,7 +233,7 @@ class Bathymetry:
 
         return b_total
 
-    def plot(self, cmap='seismic', step_berils=None, aux_title='', _ax=None):
+    def plot(self, cmap='seismic', step_beriles=None, aux_title='', _ax=None):
         def get_colors_cmap(name_cmap, ncolors=None):
             colors = []
             cmap = matplotlib.cm.get_cmap(name_cmap)
@@ -269,17 +269,19 @@ class Bathymetry:
         _ax.set_ylabel('Lat')
         _ax.set_aspect('equal')
 
+        zmin, zmax = np.nanmin(elevation), np.nanmax(elevation)
+
         # Crear niveles adicionales
-        if step_berils is None:
-            step_berils = int(abs(zmin) / 10)
-        if step_berils > abs(zmin):
-            step_berils = int(abs(zmin) / 2)
-        berils = [i for i in range(-1000000, 0, int(step_berils)) if i > zmin - step_berils]
-        berils.append(0)
-        if len(berils) > 128:
-            berils = berils[-128:]
-        berils = np.concatenate((berils, -np.array(berils[-2::-1])))
-        ncolors = len(berils)
+        if step_beriles is None:
+            step_beriles = int(abs(zmin) / 10)
+        if step_beriles > abs(zmin):
+            step_beriles = int(abs(zmin) / 2)
+        beriles = [i for i in range(-1000000, 0, int(step_beriles)) if i > zmin - step_beriles]
+        beriles.append(0)
+        if len(beriles) > 128:
+            beriles = beriles[-128:]
+        beriles = np.concatenate((beriles, -np.array(beriles[-2::-1])))
+        ncolors = len(beriles)
 
         colors = get_colors_cmap(cmap, ncolors=ncolors)
         colors = [colors[i] for i in range(0, len(colors), int(len(colors) / ncolors))]
