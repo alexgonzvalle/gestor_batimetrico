@@ -286,8 +286,8 @@ class Bathymetry:
         colors = get_colors_cmap(cmap, ncolors=ncolors)
         colors = [colors[i] for i in range(0, len(colors), int(len(colors) / ncolors))]
 
-        pc = _ax.contourf(lon_mesh, lat_mesh, elevation, vmin=min(berils), vmax=max(berils), levels=berils, colors=colors, extend='both')
-        _pc = _ax.contour(lon_mesh, lat_mesh, elevation, vmin=min(berils), vmax=max(berils), levels=berils,  colors=('k',))
+        pc = _ax.contourf(lon_mesh, lat_mesh, elevation, vmin=min(beriles), vmax=max(beriles), levels=beriles, colors=colors, extend='both')
+        _pc = _ax.contour(lon_mesh, lat_mesh, elevation, vmin=min(beriles), vmax=max(beriles), levels=beriles,  colors=('k',))
         _ax.clabel(_pc, _pc.levels, fmt=fmt, fontsize=10, colors='w')
 
         cbar = _ax.figure.colorbar(pc)
