@@ -246,7 +246,7 @@ class Bathymetry:
 
         lat, lon = self.ds.lat.values, self.ds.lon.values
         lon_mesh, lat_mesh = np.meshgrid(lon, lat)
-        elevation = np.squeeze(self.ds.elevation.values.copy()) * -1
+        elevation = np.squeeze(self.ds.elevation.values.copy())
 
         _show = False
         if _ax is None:
@@ -266,8 +266,7 @@ class Bathymetry:
             _pc = _ax.contour(lon_mesh, lat_mesh, elevation, levels=levels,  colors=('k',))
             _ax.clabel(_pc, _pc.levels, fmt=fmt, fontsize=10, colors='w')
         else:
-            pc = _ax.pcolor(lon_mesh, lat_mesh, elevation, levels=levels,
-                           cmap=cmap, shading='auto', edgecolors="k", linewidth=0.5)
+            pc = _ax.pcolor(lon_mesh, lat_mesh, elevation, levels=levels, cmap=cmap, shading='auto', edgecolors="k", linewidth=0.5)
 
         cbar = _ax.figure.colorbar(pc)
         cbar.set_label("(m)", labelpad=-0.1)
