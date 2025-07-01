@@ -289,7 +289,7 @@ class Bathymetry:
         beriles, colors = self.colors_by_beriles(zmin, step_beriles, cmap)
 
         _ax.view_init(50, 135)
-        _ax.plot_surface(lon_mesh, lat_mesh, elevation, vmin=min(beriles), vmax=max(beriles), levels=beriles, colors=colors)
+        _ax.plot_surface(lon_mesh, lat_mesh, elevation, vmin=min(beriles), vmax=max(beriles), colors=colors)
         _ax.set_xlabel('Lon (ª)')
         _ax.set_ylabel('Lat (ª)')
         _ax.set_zlabel('Elevation')
