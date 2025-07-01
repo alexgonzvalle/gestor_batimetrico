@@ -265,8 +265,8 @@ class Bathymetry:
             _show = True
 
         _ax.set_title(f'Batimetria {aux_title}')
-        _ax.set_xlabel('Lon')
-        _ax.set_ylabel('Lat')
+        _ax.set_xlabel('Lon (ª)')
+        _ax.set_ylabel('Lat (ª)')
         _ax.set_aspect('equal')
 
         zmin, zmax = np.nanmin(elevation), np.nanmax(elevation)
@@ -296,12 +296,12 @@ class Bathymetry:
         if _show:
             plt.show()
 
-    def plot_3d(self, _ax=None):
+    def plot_3d(self, cmap='seismic', _ax=None):
         """Grafica la batimetria en 3D."""
 
         lat, lon = self.ds.lat.values, self.ds.lon.values
         lon_mesh, lat_mesh = np.meshgrid(lon, lat)
-        elevation = np.squeeze(self.ds.elevation.values.copy()) * -1
+        elevation = np.squeeze(self.ds.elevation.values.copy())
 
         _show = False
         if _ax is None:
@@ -310,9 +310,9 @@ class Bathymetry:
             _show = True
 
         _ax.view_init(50, 135)
-        _ax.plot_surface(lon_mesh, lat_mesh, elevation, cmap='Blues_r')
-        _ax.set_xlabel('Lon')
-        _ax.set_ylabel('Lat')
+        _ax.plot_surface(lon_mesh, lat_mesh, elevation, cmap=cmap)
+        _ax.set_xlabel('Lon (ª)')
+        _ax.set_ylabel('Lat (ª)')
         _ax.set_zlabel('Elevation')
 
         if _show:
