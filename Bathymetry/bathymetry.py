@@ -234,17 +234,6 @@ class Bathymetry:
         return b_total
 
     def plot(self, cmap='seismic', step_beriles=None, aux_title='', _ax=None):
-        def get_colors_cmap(name_cmap, ncolors=None):
-            colors = []
-            cmap = cm.get_cmap(name_cmap)
-            if ncolors is None:
-                ncolors = cmap.N
-            for i in range(0, cmap.N, int(cmap.N / ncolors)):
-                rgba = cmap(i)
-                colors.append(colors_matplotlib.rgb2hex(rgba))
-
-            return colors
-
         """Grafica la batimetria.
         :param as_contourf: Grafica como contourf.
         :param cmap: Colormap."""
@@ -269,22 +258,9 @@ class Bathymetry:
         _ax.set_ylabel('Lat (ª)')
         _ax.set_aspect('equal')
 
-        zmin, zmax = np.nanmin(elevation), np.nanmax(elevation)
-
         # Crear niveles adicionales
-        if step_beriles is None:
-            step_beriles = int(abs(zmin) / 10)
-        if step_beriles > abs(zmin):
-            step_beriles = int(abs(zmin) / 2)
-        beriles = [i for i in range(-1000000, 0, int(step_beriles)) if i > zmin - step_beriles]
-        beriles.append(0)
-        if len(beriles) > 128:
-            beriles = beriles[-128:]
-        beriles = np.concatenate((beriles, -np.array(beriles[-2::-1])))
-        ncolors = len(beriles)
-
-        colors = get_colors_cmap(cmap, ncolors=ncolors)
-        colors = [colors[i] for i in range(0, len(colors), int(len(colors) / ncolors))]
+        zmin = np.nanmin(elevation)
+        beriles, colors = self.colors_by_beriles(zmin, step_beriles, cmap)
 
         pc = _ax.contourf(lon_mesh, lat_mesh, elevation, vmin=min(beriles), vmax=max(beriles), levels=beriles, colors=colors, extend='both')
         _pc = _ax.contour(lon_mesh, lat_mesh, elevation, vmin=min(beriles), vmax=max(beriles), levels=beriles,  colors=('k',))
@@ -309,14 +285,46 @@ class Bathymetry:
             _ax = fig.add_subplot(111, projection='3d')
             _show = True
 
+        zmin = np.nanmin(elevation)
+        beriles, colors = self.colors_by_beriles(zmin, step_beriles, cmap)
+
         _ax.view_init(50, 135)
-        _ax.plot_surface(lon_mesh, lat_mesh, elevation, cmap=cmap)
+        _ax.plot_surface(lon_mesh, lat_mesh, elevation, vmin=min(beriles), vmax=max(beriles), levels=beriles, colors=colors)
         _ax.set_xlabel('Lon (ª)')
         _ax.set_ylabel('Lat (ª)')
         _ax.set_zlabel('Elevation')
 
         if _show:
             plt.show()
+
+    @staticmethod
+    def colors_by_beriles(zmin, step_beriles=None, cmap='seismic'):
+        def get_colors_cmap(name_cmap, ncolors=None):
+            colors = []
+            cmap = cm.get_cmap(name_cmap)
+            if ncolors is None:
+                ncolors = cmap.N
+            for i in range(0, cmap.N, int(cmap.N / ncolors)):
+                rgba = cmap(i)
+                colors.append(colors_matplotlib.rgb2hex(rgba))
+
+            return colors
+
+        if step_beriles is None:
+            step_beriles = int(abs(zmin) / 10)
+        if step_beriles > abs(zmin):
+            step_beriles = int(abs(zmin) / 2)
+        beriles = [i for i in range(-1000000, 0, int(step_beriles)) if i > zmin - step_beriles]
+        beriles.append(0)
+        if len(beriles) > 128:
+            beriles = beriles[-128:]
+        beriles = np.concatenate((beriles, -np.array(beriles[-2::-1])))
+        ncolors = len(beriles)
+
+        colors = get_colors_cmap(cmap, ncolors=ncolors)
+        colors = [colors[i] for i in range(0, len(colors), int(len(colors) / ncolors))]
+
+        return beriles, colors
 
     def plot_perfil_ortogonal(self, coord_lon, coord_lat, lbl_z=''):
         """ Grafica el perfil ortogonal de la bathymetry general.
