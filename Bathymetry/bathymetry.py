@@ -1,5 +1,6 @@
 import numpy as np
 import utm
+from pyproj import Transformer
 import xarray as xr
 from scipy.interpolate import griddata
 import logging
@@ -17,7 +18,7 @@ class Bathymetry:
     :param lon_mesh: Longitud de la malla.
     :param elevation_mesh: Profundidad de la malla."""
 
-    def __init__(self, zn_huso=None, zd_huso=None):
+    def __init__(self, zn_huso=None, zd_huso=None, crs_from=None):
         """ Carga la bathymetry general.
         :param zn_huso: Zona del huso.
         :param zd_huso: Zona del huso."""
@@ -45,10 +46,11 @@ class Bathymetry:
 
         self.zn_huso = zn_huso
         self.zd_huso = zd_huso
+        self.crs_from = crs_from
 
         self.ds = None
 
-    def load_file(self, file_path, size_mesh=None, z_neg=True):
+    def load_file(self, file_path, size_mesh=None, z_neg=True, value_nan=None):
         """ Carga la bathymetry general.
         :param file_path: Ruta del archivo."""
 
@@ -60,7 +62,7 @@ class Bathymetry:
 
             if type_file == 'nc':
                 self.ds = xr.open_dataset(file_path, decode_cf=False)
-            elif type_file == 'dat' or type_file == 'xyz':
+            elif type_file == 'dat' or type_file == 'xyz' or type_file == 'txt':
                 data = np.loadtxt(file_path)
                 x = np.array(data[:, 0])
                 y = np.array(data[:, 1])
@@ -68,6 +70,9 @@ class Bathymetry:
 
                 if self.zn_huso is not None and self.zd_huso is not None:
                     y, x = utm.to_latlon(x, y, self.zn_huso, self.zd_huso)
+                elif self.crs_from is not None:
+                    transformer = Transformer.from_crs(self.crs_from, "EPSG:4326", always_xy=True)
+                    x, y = transformer.transform(x, y)
 
                 lon, lat, elevation_mesh = self.to_mesh(x, y, elevation, size_mesh)
                 self.ds = xr.Dataset(
@@ -85,6 +90,9 @@ class Bathymetry:
 
             if z_neg:
                 self.ds.elevation.values *= -1
+
+            if value_nan:
+                self.ds.elevation.values[self.ds.elevation.values == self.ds.elevation.values.min()] = np.nan
 
         self.logger.info(f'Archivo cargado correctamente. '
                          f'Dimensiones: {self.ds.lon.shape}. Latitud: {self.ds.lat.min()} - {self.ds.lat.max()}. Longitud: {self.ds.lon.min()} - {self.ds.lon.max()}. '
@@ -233,7 +241,7 @@ class Bathymetry:
 
         return b_total
 
-    def plot(self, cmap='seismic', step_beriles=None, aux_title='', _ax=None):
+    def plot(self, cmap='seismic', x_lim=None, y_lim=None, zmin=None, step_beriles=None, aux_title='', _ax=None):
         """Grafica la batimetria.
         :param as_contourf: Grafica como contourf.
         :param cmap: Colormap."""
@@ -259,7 +267,7 @@ class Bathymetry:
         _ax.set_aspect('equal')
 
         # Crear niveles adicionales
-        zmin = np.nanmin(elevation)
+        zmin = np.nanmin(elevation) if zmin is None else zmin
         beriles, colors = self.colors_by_beriles(zmin, step_beriles, cmap)
 
         pc = _ax.contourf(lon_mesh, lat_mesh, elevation, vmin=min(beriles), vmax=max(beriles), levels=beriles, colors=colors, extend='both')
@@ -268,6 +276,11 @@ class Bathymetry:
 
         cbar = _ax.figure.colorbar(pc)
         cbar.set_label("(m)", labelpad=-0.1)
+
+        if x_lim:
+            _ax.set_xlim(x_lim)
+        if y_lim:
+            _ax.set_ylim(y_lim)
 
         if _show:
             plt.show()
@@ -311,6 +324,8 @@ class Bathymetry:
             step_beriles = int(abs(zmin) / 10)
         if step_beriles > abs(zmin):
             step_beriles = int(abs(zmin) / 2)
+        if step_beriles == 0:
+            step_beriles = 1
         beriles = [i for i in range(-1000000, 0, int(step_beriles)) if i > zmin - step_beriles]
         beriles.append(0)
         if len(beriles) > 128:
