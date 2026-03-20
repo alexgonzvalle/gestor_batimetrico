@@ -1,10 +1,10 @@
 from pathlib import Path
-from setuptools import setup
+from setuptools import setup, find_packages
 
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
-VERSION = '0.0.1'
+VERSION = '1.0.0'
 DESCRIPTION = 'Gestor Batimetrico.'
 PACKAGE_NAME = 'Bathymetry'
 AUTHOR = 'IHCantabria - AGV'
@@ -13,7 +13,7 @@ GITHUB_URL = 'https://github.com/alexgonzvalle'
 
 setup(
     name=PACKAGE_NAME,
-    packages=[PACKAGE_NAME],
+    packages=find_packages(),
     version=VERSION,
     license='',
     description=DESCRIPTION,
@@ -24,9 +24,6 @@ setup(
     url=GITHUB_URL,
     keywords=[],
     install_requires=['numpy', 'matplotlib', 'utm', 'xarray', 'scipy'],
-    package_data={'': []},
     include_package_data=True,
-    classifiers=[
-        'Programming Language :: Python :: 3',
-    ],
+    classifiers=['Programming Language :: Python :: 3'],
 )

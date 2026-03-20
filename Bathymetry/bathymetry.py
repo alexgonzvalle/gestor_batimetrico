@@ -3,9 +3,8 @@ import utm
 from pyproj import Transformer
 import xarray as xr
 from scipy.interpolate import griddata
-import logging
-
-from matplotlib import pyplot as plt, ticker, patches, cm, colors as colors_matplotlib
+from utils import default_logger, colors_by_beriles
+from matplotlib import pyplot as plt, ticker, patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
@@ -18,31 +17,21 @@ class Bathymetry:
     :param lon_mesh: Longitud de la malla.
     :param elevation_mesh: Profundidad de la malla."""
 
-    def __init__(self, zn_huso=None, zd_huso=None, crs_from=None):
-        """ Carga la bathymetry general.
-        :param zn_huso: Zona del huso.
-        :param zd_huso: Zona del huso."""
+    def __init__(self, zn_huso=None, zd_huso=None, crs_from=None, name_logger='GestorBatimetrico'):
+        """
+        Initializes an instance of the class with configuration for geospatial operations.
 
-        self.logger = logging.getLogger('mi_logger')
-        if self.logger is None:
-            # Configuración del logger
-            logger = logging.getLogger('mi_logger')
-            logger.setLevel(logging.INFO)
+        :param zn_huso: Zone number for projection. Used to define the UTM projection zone.
+        :type zn_huso: int, optional
+        :param zd_huso: Zone description for projection. Provides additional context for the projection zone configuration.
+        :type zd_huso: str, optional
+        :param crs_from: Coordinate Reference System (CRS) of the input data. Specifies the spatial reference information for the source data.
+        :type crs_from: Any, optional
+        :param name_logger: Name for the logger instance. Useful for setting up logging specific to this class instance. Defaults to 'GestorBatimetrico'.
+        :type name_logger: str, optional
+        """
 
-            # Formato
-            formatter = logging.Formatter('%(asctime)s - %(filename)s - %(levelname)s - %(message)s', '%Y-%m-%d %H:%M:%S')
-
-            # Archivo
-            file_handler = logging.FileHandler('bathymetry.log', mode='w', encoding='utf-8')
-            file_handler.setFormatter(formatter)
-
-            # Consola
-            console_handler = logging.StreamHandler()
-            console_handler.setFormatter(formatter)
-
-            # Agregar manejadores al logger
-            logger.addHandler(file_handler)
-            logger.addHandler(console_handler)
+        self.logger = default_logger(name_logger)
 
         self.zn_huso = zn_huso
         self.zd_huso = zd_huso
@@ -50,7 +39,7 @@ class Bathymetry:
 
         self.ds = None
 
-    def load_file(self, file_path, size_mesh=None, z_neg=True, value_nan=None):
+    def load_file(self, file_path, size_mesh=None, z_neg=True, value_nan=None, delimiter=None):
         """ Carga la bathymetry general.
         :param file_path: Ruta del archivo."""
 
@@ -63,7 +52,7 @@ class Bathymetry:
             if type_file == 'nc':
                 self.ds = xr.open_dataset(file_path, decode_cf=False)
             elif type_file == 'dat' or type_file == 'xyz' or type_file == 'txt':
-                data = np.loadtxt(file_path)
+                data = np.loadtxt(file_path, delimiter=delimiter)
                 x = np.array(data[:, 0])
                 y = np.array(data[:, 1])
                 elevation = np.array(data[:, 2])
@@ -112,14 +101,6 @@ class Bathymetry:
 
         self.logger.info(f'Archivo cargado correctamente. '
                          f'Latitud: {self.ds.lat.values.min()} - {self.ds.lat.values.max()}. Longitud: {self.ds.lon.values.min()} - {self.ds.lon.values.max()}. ')
-
-    def set_proj(self):
-        lat, lon = self.ds.lat.values, self.ds.lon.values
-        if len(lat) > 0 and len(lon) > 0:
-            _, _, self.zn_huso, self.zd_huso = utm.from_latlon(self.ds.lat.values, self.ds.lon.values)
-            self.zd_huso = 'N' if self.zd_huso in ['X', 'W', 'V', 'U', 'T', 'S', 'R', 'Q', 'P', 'N'] else 'S' if self.zd_huso in ['M', 'L', 'K', 'J', 'H', 'G', 'F', 'E', 'D', 'C'] else ''
-        else:
-            self.zn_huso, self.zd_huso = 30, 'N'
 
     def cut(self, lon_min, lat_min, lon_max, lat_max):
         """ Filtra la bathymetry general.
@@ -306,37 +287,6 @@ class Bathymetry:
 
         if _show:
             plt.show()
-
-    @staticmethod
-    def colors_by_beriles(zmin, step_beriles=None, cmap='seismic'):
-        def get_colors_cmap(name_cmap, ncolors=None):
-            colors = []
-            cmap = cm.get_cmap(name_cmap)
-            if ncolors is None:
-                ncolors = cmap.N
-            for i in range(0, cmap.N, int(cmap.N / ncolors)):
-                rgba = cmap(i)
-                colors.append(colors_matplotlib.rgb2hex(rgba))
-
-            return colors
-
-        if step_beriles is None:
-            step_beriles = int(abs(zmin) / 10)
-        if step_beriles > abs(zmin):
-            step_beriles = int(abs(zmin) / 2)
-        if step_beriles == 0:
-            step_beriles = 1
-        beriles = [i for i in range(-1000000, 0, int(step_beriles)) if i > zmin - step_beriles]
-        beriles.append(0)
-        if len(beriles) > 128:
-            beriles = beriles[-128:]
-        beriles = np.concatenate((beriles, -np.array(beriles[-2::-1])))
-        ncolors = len(beriles)
-
-        colors = get_colors_cmap(cmap, ncolors=ncolors)
-        colors = [colors[i] for i in range(0, len(colors), int(len(colors) / ncolors))]
-
-        return beriles, colors
 
     def plot_perfil_ortogonal(self, coord_lon, coord_lat, lbl_z=''):
         """ Grafica el perfil ortogonal de la bathymetry general.
