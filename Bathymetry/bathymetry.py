@@ -3,7 +3,7 @@ import utm
 from pyproj import Transformer
 import xarray as xr
 from scipy.interpolate import griddata
-from utils import default_logger, colors_by_beriles
+from Bathymetry.utils import default_logger, colors_by_beriles
 from matplotlib import pyplot as plt, ticker, patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
