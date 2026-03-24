@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from bathymetry import Bathymetry
+from Bathymetry import Bathymetry
 
 
 @pytest.fixture()

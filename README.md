@@ -26,7 +26,7 @@ pip install -e .[dev]
 ## Minimal example
 
 ```python
-from bathymetry import Bathymetry
+from Bathymetry import Bathymetry
 
 bathy = Bathymetry(source_crs="EPSG:3395")
 bathy.load_file("example.xyz", size_mesh=200, z_neg=True)
@@ -36,6 +36,6 @@ bathy.save_nc("subset.nc")
 
 ## Public API
 
-- `bathymetry.Bathymetry`: main dataset container and workflow entry point.
+- `Bathymetry.Bathymetry`: main dataset container and workflow entry point.
 
-Use `from bathymetry import Bathymetry` in client code.
+Use `from Bathymetry import Bathymetry` in client code.
