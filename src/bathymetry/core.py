@@ -35,7 +35,7 @@ class Bathymetry:
     source_crs : str, optional
         Coordinate reference system of the input scattered data. Ignored when UTM
         zone parameters are provided.
-    logger_name : str, default="bathymetry"
+    name_logger : str, default="bathymetry"
         Logger name used to emit diagnostic messages.
     """
 
@@ -44,9 +44,9 @@ class Bathymetry:
         utm_zone_number: int | None = None,
         utm_zone_letter: str | None = None,
         source_crs: str | None = None,
-        logger_name: str = "bathymetry",
+        name_logger: str = "bathymetry",
     ) -> None:
-        self.logger = default_logger(logger_name)
+        self.logger = default_logger(name_logger)
         self.utm_zone_number = utm_zone_number
         self.utm_zone_letter = utm_zone_letter
         self.source_crs = source_crs
@@ -246,7 +246,7 @@ class Bathymetry:
             utm_zone_number=self.utm_zone_number,
             utm_zone_letter=self.utm_zone_letter,
             source_crs=self.source_crs,
-            logger_name=self.logger.name,
+            name_logger=self.logger.name,
         )
         result._log_dataset_summary("Merged dataset")
         return result
