@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gestor-batimetrico"
+version = "1.1.0"
+description = "Scientific bathymetry utilities for loading, interpolating, merging, and visualizing gridded bathymetric data."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [
+  { name = "IHCantabria - AGV", email = "gonzalezva@unican.es" }
+]
+dependencies = [
+  "matplotlib>=3.8",
+  "numpy>=1.26",
+  "pyproj>=3.6",
+  "scipy>=1.11",
+  "utm>=0.7",
+  "xarray>=2023.10",
+]
+keywords = ["bathymetry", "geospatial", "oceanography", "scientific-python"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.urls]
+Homepage = "https://github.com/alexgonzvalle"
+Repository = "https://github.com/alexgonzvalle"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
