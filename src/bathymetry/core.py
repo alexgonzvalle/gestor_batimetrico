@@ -65,6 +65,7 @@ class Bathymetry:
         file_path: str | Path,
         size_mesh: int | None = None,
         z_neg: bool = True,
+        z_ref: float | None = None,
         value_nan: float | None = None,
         delimiter: str | None = None,
     ) -> None:
@@ -96,6 +97,8 @@ class Bathymetry:
         if "elevation" not in dataset:
             raise ValueError("The dataset must contain an `elevation` variable.")
 
+        if z_ref:
+            dataset["elevation"] = dataset["elevation"] - z_ref
         if z_neg:
             dataset["elevation"] = dataset["elevation"] * -1
 
@@ -212,14 +215,18 @@ class Bathymetry:
         self.ds.to_netcdf(path)
         self.logger.info("Saved dataset to %s", path)
 
-    def save_dat(self, file_path: str | Path, in_utm: bool = False) -> None:
+    def save_dat(self, file_path: str | Path, in_utm: bool = False, z_neg: bool = True) -> None:
         """Save the current dataset as a three-column text file."""
 
         validate_loaded_dataset(self.ds)
         lat = self.ds.lat.values
         lon = self.ds.lon.values
         lon_mesh, lat_mesh = np.meshgrid(lon, lat)
+
         elevation = self.ds.elevation.values
+
+        if z_neg:
+            elevation = elevation * -1
 
         if in_utm:
             x, y, _, _ = utm.from_latlon(lat_mesh, lon_mesh)
@@ -263,6 +270,7 @@ class Bathymetry:
         x_lim: tuple[float, float] | None = None,
         y_lim: tuple[float, float] | None = None,
         zmin: float | None = None,
+        zmax: float | None = None,
         step_beriles: int | None = None,
         aux_title: str = "",
         _ax: Any = None,
@@ -278,6 +286,7 @@ class Bathymetry:
             x_lim=x_lim,
             y_lim=y_lim,
             zmin=zmin,
+            zmax=zmax,
             step_beriles=step_beriles,
             title_suffix=aux_title,
             axis=_ax,

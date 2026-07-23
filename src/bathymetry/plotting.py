@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib import colors as mpl_colors
 from matplotlib import patches
 from matplotlib import ticker
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -31,6 +32,7 @@ def plot_bathymetry(
     x_lim: tuple[float, float] | None = None,
     y_lim: tuple[float, float] | None = None,
     zmin: float | None = None,
+    zmax: float | None = None,
     step_beriles: int | None = None,
     title_suffix: str = "",
     axis: Any = None,
@@ -48,16 +50,18 @@ def plot_bathymetry(
     axis.set_aspect("equal")
 
     zmin = float(np.nanmin(elevation)) if zmin is None else zmin
-    levels, colors = build_symmetric_levels_and_colors(zmin, step_beriles, cmap)
+    zmax = float(np.nanmax(elevation)) if zmax is None else zmax
+    zmax = max(1.0, zmax)
+    levels, _ = build_symmetric_levels_and_colors(zmin, zmax, step_beriles, cmap)
+    color_norm = mpl_colors.TwoSlopeNorm(vmin=zmin, vcenter=0.0, vmax=zmax)
 
     filled = axis.contourf(
         lon_mesh,
         lat_mesh,
         elevation,
-        vmin=float(np.min(levels)),
-        vmax=float(np.max(levels)),
         levels=levels,
-        colors=colors,
+        cmap=cmap,
+        norm=color_norm,
         extend="both",
     )
     lines = axis.contour(
@@ -69,6 +73,15 @@ def plot_bathymetry(
         levels=levels,
         colors=("k",),
     )
+    if zmin < 0 < zmax:
+        axis.contour(
+            lon_mesh,
+            lat_mesh,
+            elevation,
+            levels=(0.0,),
+            colors=("white",),
+            linewidths=(1.5,),
+        )
     axis.clabel(lines, lines.levels, fmt=format_meter_label, fontsize=10, colors="w")
 
     colorbar = axis.figure.colorbar(filled)

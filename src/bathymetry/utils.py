@@ -45,20 +45,43 @@ def compute_sampling_step(size: int, threshold: int = 300_000) -> int:
 
 def build_symmetric_levels_and_colors(
     minimum_elevation: float,
+    maximum_elevation: float,
     step: int | None = None,
     colormap_name: str = "seismic",
 ) -> tuple[np.ndarray, list[str]]:
-    """Build symmetric contour levels and colors around sea level."""
+    """Build contour levels and colors across the elevation range."""
 
-    if minimum_elevation >= 0:
-        levels = np.array([0.0, 1.0])
-    else:
-        if step is None:
-            step = max(1, int(abs(minimum_elevation) / 10))
-        step = max(1, min(step, max(1, int(abs(minimum_elevation) / 2))))
-        negative_levels = np.arange(minimum_elevation, 0.0, step, dtype=float)
-        levels = np.unique(np.concatenate((negative_levels, np.array([0.0]), -negative_levels[::-1])))
+    if maximum_elevation <= minimum_elevation:
+        raise ValueError("`maximum_elevation` must be greater than `minimum_elevation`.")
 
-    cmap = cm.get_cmap(colormap_name, len(levels))
-    colors = [mpl_colors.rgb2hex(cmap(index)) for index in range(cmap.N)]
+    elevation_range = maximum_elevation - minimum_elevation
+    if step is None:
+        step = max(1, int(elevation_range / 10))
+    step = max(1, min(step, max(1, int(elevation_range / 2))))
+
+    levels = np.arange(minimum_elevation, maximum_elevation, step, dtype=float)
+    levels = np.append(levels, float(maximum_elevation))
+    if minimum_elevation < 0 < maximum_elevation:
+        levels = np.unique(np.append(levels, 0.0))
+
+    cmap = cm.get_cmap(colormap_name)
+    color_positions = np.empty_like(levels)
+
+    negative = levels < 0
+    positive = levels > 0
+    zero = ~(negative | positive)
+
+    if np.any(negative):
+        color_positions[negative] = 0.5 * (
+            (levels[negative] - minimum_elevation) / (0.0 - minimum_elevation)
+        )
+    if np.any(positive):
+        color_positions[positive] = 0.5 + 0.5 * (
+            levels[positive] / maximum_elevation
+        )
+    color_positions[zero] = 0.5
+
+    colors = [mpl_colors.rgb2hex(cmap(position)) for position in color_positions]
+    if np.any(zero):
+        colors[int(np.flatnonzero(zero)[0])] = "#ffffff"
     return levels, colors
