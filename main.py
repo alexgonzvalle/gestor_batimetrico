@@ -15,12 +15,12 @@ source_crs = (
 
 file = r'D:\ONEDRIVE\OneDrive - UNICAN\Proyectos\ElSalvador\Batimetria\Min cada 20m negativo - ordenado.xyz'
 # file = r'D:\ONEDRIVE\OneDrive - UNICAN\Proyectos\ElSalvador\Batimetria\Min cada 20m negativo - ordenado_lonlat.dat'
-b = Bathymetry()
-b.load_file(file, size_mesh=500, z_neg=False, z_ref=1)
+b = Bathymetry(source_crs=source_crs)
+b.load_file(file, size_mesh=500, z_neg=False)
 b.save_dat(r'D:\ONEDRIVE\OneDrive - UNICAN\Proyectos\ElSalvador\Batimetria\Min cada 20m negativo - ordenado_lonlat.dat')
 b.plot(step_beriles=1)
 
 # file = r'D:\Development\Casos\CLIMPORT\Acajutla\hindcast\StoreData\Batimetria.nc'
-# b = Bathymetry(17, 'N', "EPSG:32616")
+# b = Bathymetry()
 # b.load_file(file, size_mesh=500, z_neg=False)
-# b.plot()
+# b.plot(step_beriles=1)

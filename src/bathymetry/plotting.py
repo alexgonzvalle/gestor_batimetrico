@@ -87,6 +87,38 @@ def plot_bathymetry(
     colorbar = axis.figure.colorbar(filled)
     colorbar.set_label("(m)", labelpad=-0.1)
 
+    elevation_annotation = axis.annotate(
+        "",
+        xy=(0, 0),
+        xytext=(12, 12),
+        textcoords="offset points",
+        bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.9},
+        arrowprops={"arrowstyle": "->", "color": "black"},
+        zorder=10,
+    )
+    elevation_annotation.set_visible(False)
+
+    def show_elevation_on_click(event: Any) -> None:
+        if event.inaxes is not axis or event.xdata is None or event.ydata is None:
+            return
+
+        lon_index = int(np.abs(lon - event.xdata).argmin())
+        lat_index = int(np.abs(lat - event.ydata).argmin())
+        selected_lon = float(lon[lon_index])
+        selected_lat = float(lat[lat_index])
+        selected_elevation = float(elevation[lat_index, lon_index])
+
+        elevation_annotation.xy = (selected_lon, selected_lat)
+        elevation_annotation.set_text(
+            f"Lon: {selected_lon:.6f}\n"
+            f"Lat: {selected_lat:.6f}\n"
+            f"Elevación: {selected_elevation:.2f} m"
+        )
+        elevation_annotation.set_visible(True)
+        axis.figure.canvas.draw_idle()
+
+    axis.figure.canvas.mpl_connect("button_press_event", show_elevation_on_click)
+
     if x_lim is not None:
         axis.set_xlim(x_lim)
     if y_lim is not None:
