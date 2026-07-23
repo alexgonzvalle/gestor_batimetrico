@@ -104,6 +104,36 @@ def test_merge_preserves_base_extent_and_original_detail_points(sample_dataset: 
     assert -14.0 not in merged.ds.elevation.values
 
 
+def test_merge_accepts_singleton_time_dimension(sample_dataset: xr.Dataset) -> None:
+    timed_base = sample_dataset.expand_dims(time=[0])
+    detail_dataset = xr.Dataset(
+        {"elevation": ("point", [-100.0, -101.0, -102.0, -103.0])},
+        coords={
+            "lon": ("point", [-2.75, -2.25, -2.75, -2.25]),
+            "lat": ("point", [43.25, 43.25, 43.75, 43.75]),
+        },
+    )
+
+    merged = Bathymetry.from_dataset(timed_base).merge(Bathymetry.from_dataset(detail_dataset))
+
+    assert merged.ds.elevation.dims == ("point",)
+    assert merged.ds.sizes["point"] == 12
+
+
+def test_merge_rejects_multiple_time_steps(sample_dataset: xr.Dataset) -> None:
+    timed_base = sample_dataset.expand_dims(time=[0, 1])
+    detail_dataset = xr.Dataset(
+        {"elevation": ("point", [-100.0, -101.0, -102.0])},
+        coords={
+            "lon": ("point", [-2.75, -2.25, -2.5]),
+            "lat": ("point", [43.25, 43.25, 43.75]),
+        },
+    )
+
+    with pytest.raises(ValueError, match=r"got \('time', 'lat', 'lon'\)"):
+        Bathymetry.from_dataset(timed_base).merge(Bathymetry.from_dataset(detail_dataset))
+
+
 def test_interpolate_to_grid_interpolates_scattered_points() -> None:
     bathymetry = Bathymetry()
     x = np.array([0.0, 1.0, 0.0, 1.0])
