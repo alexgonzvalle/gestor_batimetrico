@@ -129,6 +129,66 @@ def plot_bathymetry(
     return axis
 
 
+def plot_point_bathymetry(
+    lon: np.ndarray,
+    lat: np.ndarray,
+    elevation: np.ndarray,
+    *,
+    cmap: str = "seismic",
+    x_lim: tuple[float, float] | None = None,
+    y_lim: tuple[float, float] | None = None,
+    zmin: float | None = None,
+    zmax: float | None = None,
+    step_beriles: int | None = None,
+    title_suffix: str = "",
+    axis: Any = None,
+) -> Any:
+    """Render a triangulated point bathymetry without gridding it."""
+
+    valid = np.isfinite(lon) & np.isfinite(lat) & np.isfinite(elevation)
+    lon = np.asarray(lon[valid], dtype=float)
+    lat = np.asarray(lat[valid], dtype=float)
+    elevation = np.asarray(elevation[valid], dtype=float)
+    if elevation.size < 3:
+        raise ValueError("At least three finite points are required to plot point bathymetry.")
+
+    axis_was_created = axis is None
+    if axis_was_created:
+        _, axis = plt.subplots()
+
+    axis.set_title(f"Bathymetry {title_suffix}".strip())
+    axis.set_xlabel("Longitude (deg)")
+    axis.set_ylabel("Latitude (deg)")
+    axis.set_aspect("equal")
+
+    zmin = float(np.nanmin(elevation)) if zmin is None else zmin
+    zmax = float(np.nanmax(elevation)) if zmax is None else zmax
+    zmax = max(1.0, zmax)
+    levels, _ = build_symmetric_levels_and_colors(zmin, zmax, step_beriles, cmap)
+    color_norm = mpl_colors.TwoSlopeNorm(vmin=zmin, vcenter=0.0, vmax=zmax)
+    filled = axis.tricontourf(
+        lon,
+        lat,
+        elevation,
+        levels=levels,
+        cmap=cmap,
+        norm=color_norm,
+        extend="both",
+    )
+    lines = axis.tricontour(lon, lat, elevation, levels=levels, colors=("k",))
+    axis.clabel(lines, lines.levels, fmt=format_meter_label, fontsize=10, colors="w")
+    colorbar = axis.figure.colorbar(filled)
+    colorbar.set_label("(m)", labelpad=-0.1)
+
+    if x_lim is not None:
+        axis.set_xlim(x_lim)
+    if y_lim is not None:
+        axis.set_ylim(y_lim)
+    if axis_was_created:
+        plt.show()
+    return axis
+
+
 def plot_bathymetry_3d(lon: np.ndarray, lat: np.ndarray, elevation: np.ndarray, *, axis: Any = None) -> Any:
     """Render a 3D bathymetry surface plot."""
 

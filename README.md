@@ -29,7 +29,8 @@ pip install -e .[dev]
 from Bathymetry import Bathymetry
 
 bathy = Bathymetry(source_crs="EPSG:3395")
-bathy.load_file("example.xyz", size_mesh=200, z_neg=True)
+bathy.load_file("example.xyz", z_neg=True)
+bathy.to_grid(size_mesh=200)
 bathy.crop(lon_min=-3.95, lat_min=43.45, lon_max=-3.65, lat_max=43.60)
 bathy.save_nc("subset.nc")
 ```

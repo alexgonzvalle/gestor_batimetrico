@@ -11,6 +11,7 @@ import utm
 import xarray as xr
 from pyproj import Transformer
 from scipy.interpolate import griddata
+from scipy.spatial import Delaunay, QhullError
 
 from .logging_utils import default_logger
 from .plotting import (
@@ -19,8 +20,9 @@ from .plotting import (
     plot_merge_preview,
     plot_oblique_profile,
     plot_orthogonal_profile,
+    plot_point_bathymetry,
 )
-from .utils import compute_sampling_step, normalize_path, validate_coordinate_bounds, validate_loaded_dataset
+from .utils import normalize_path, validate_coordinate_bounds, validate_loaded_dataset
 
 
 class Bathymetry:
@@ -63,7 +65,6 @@ class Bathymetry:
     def load_file(
         self,
         file_path: str | Path,
-        size_mesh: int | None = None,
         z_neg: bool = True,
         z_ref: float | None = None,
         value_nan: float | None = None,
@@ -89,8 +90,10 @@ class Bathymetry:
             y = np.asarray(data[:, 1], dtype=float)
             elevation = np.asarray(data[:, 2], dtype=float)
             lon, lat = self._transform_input_coordinates(x, y)
-            mesh_lon, mesh_lat, elevation_mesh = self.to_mesh(lon, lat, elevation, size_mesh=size_mesh)
-            dataset = xr.Dataset({"elevation": (["lat", "lon"], elevation_mesh)}, coords={"lon": mesh_lon, "lat": mesh_lat})
+            dataset = xr.Dataset(
+                {"elevation": ("point", elevation)},
+                coords={"lon": ("point", lon), "lat": ("point", lat)},
+            )
         else:
             raise ValueError(f"Unsupported file extension: {path.suffix}")
 
@@ -119,11 +122,23 @@ class Bathymetry:
         self._log_dataset_summary("Loaded remote dataset")
 
     def crop(self, lon_min: float, lat_min: float, lon_max: float, lat_max: float) -> None:
-        """Crop the loaded dataset to the nearest bounding box coordinates."""
+        """Crop the loaded dataset to a longitude/latitude bounding box."""
 
         validate_loaded_dataset(self.ds)
         validate_coordinate_bounds(lon_min, lat_min, lon_max, lat_max)
 
+        if self.ds.elevation.dims == ("point",):
+            inside = (
+                (self.ds.lon >= lon_min)
+                & (self.ds.lon <= lon_max)
+                & (self.ds.lat >= lat_min)
+                & (self.ds.lat <= lat_max)
+            )
+            self.ds = self.ds.isel(point=inside)
+            self._log_dataset_summary("Cropped dataset")
+            return
+
+        self._require_grid("crop")
         lon_min_nearest = self.ds.sel(lon=lon_min, method="nearest").lon.item()
         lon_max_nearest = self.ds.sel(lon=lon_max, method="nearest").lon.item()
         lat_min_nearest = self.ds.sel(lat=lat_min, method="nearest").lat.item()
@@ -141,14 +156,20 @@ class Bathymetry:
         warnings.warn("`cut` is deprecated; use `crop` instead.", DeprecationWarning, stacklevel=2)
         self.crop(lon_min=lon_min, lat_min=lat_min, lon_max=lon_max, lat_max=lat_max)
 
-    def to_mesh(
+    def _interpolate_to_grid(
         self,
         x: np.ndarray,
         y: np.ndarray,
         elevation: np.ndarray,
-        size_mesh: int | None = None,
+        size_mesh: int | tuple[int, int] | None = None,
+        method: str = "linear",
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Interpolate scattered bathymetry points to a regular grid."""
+        """Interpolate scattered bathymetry points to a regular grid.
+
+        ``size_mesh`` may be a single size for a square grid or a
+        ``(longitude, latitude)`` size tuple. When omitted, the coordinates
+        must already describe a complete regular grid.
+        """
 
         x = np.asarray(x, dtype=float)
         y = np.asarray(y, dtype=float)
@@ -158,13 +179,27 @@ class Bathymetry:
             raise ValueError("`x`, `y`, and `elevation` must be one-dimensional arrays.")
         if not (len(x) == len(y) == len(elevation)):
             raise ValueError("`x`, `y`, and `elevation` must have the same length.")
-        if size_mesh is not None and size_mesh < 2:
-            raise ValueError("`size_mesh` must be at least 2.")
+        if size_mesh is None:
+            mesh_size = None
+        elif isinstance(size_mesh, int):
+            mesh_size = (size_mesh, size_mesh)
+        elif (
+            isinstance(size_mesh, tuple)
+            and len(size_mesh) == 2
+            and all(isinstance(size, int) for size in size_mesh)
+        ):
+            mesh_size = size_mesh
+        else:
+            raise TypeError("`size_mesh` must be an integer, a (longitude, latitude) tuple, or None.")
 
-        if size_mesh is not None:
-            self.logger.info("Interpolating scattered bathymetry to a %sx%s grid.", size_mesh, size_mesh)
-            grid_lon = np.linspace(float(x.min()), float(x.max()), size_mesh)
-            grid_lat = np.linspace(float(y.min()), float(y.max()), size_mesh)
+        if mesh_size is not None and any(size < 2 for size in mesh_size):
+            raise ValueError("Each `size_mesh` dimension must be at least 2.")
+
+        if mesh_size is not None:
+            lon_size, lat_size = mesh_size
+            self.logger.info("Interpolating scattered bathymetry to a %sx%s grid.", lon_size, lat_size)
+            grid_lon = np.linspace(float(x.min()), float(x.max()), lon_size)
+            grid_lat = np.linspace(float(y.min()), float(y.max()), lat_size)
             lon_mesh, lat_mesh = np.meshgrid(grid_lon, grid_lat)
         else:
             unique_lon = np.unique(x)
@@ -175,12 +210,16 @@ class Bathymetry:
             grid_lat = unique_lat
             lon_mesh, lat_mesh = np.meshgrid(grid_lon, grid_lat)
 
-        sampling_step = compute_sampling_step(len(x))
-        self.logger.info("Interpolation sampling step: %s", sampling_step)
+        valid = np.isfinite(x) & np.isfinite(y) & np.isfinite(elevation)
+        if np.count_nonzero(valid) < 3:
+            raise ValueError("At least three finite bathymetry points are required for interpolation.")
+
+        self.logger.info("Interpolating with all %s finite input points.", int(np.count_nonzero(valid)))
         elevation_mesh = griddata(
-            (x[::sampling_step], y[::sampling_step]),
-            elevation[::sampling_step],
+            (x[valid], y[valid]),
+            elevation[valid],
             (lon_mesh, lat_mesh),
+            method=method,
         )
 
         self.logger.info(
@@ -192,6 +231,42 @@ class Bathymetry:
             float(np.nanmax(grid_lat)),
         )
         return grid_lon, grid_lat, elevation_mesh
+
+    def to_grid(
+        self,
+        size_mesh: int | tuple[int, int] | None = None,
+        method: str = "linear",
+    ) -> None:
+        """Convert a point bathymetry to a regular longitude/latitude grid.
+
+        The conversion is explicit because interpolation changes the data.
+        ``size_mesh`` may be an integer or a ``(longitude, latitude)`` tuple.
+        When omitted, the points must already form a complete regular grid.
+        """
+
+        validate_loaded_dataset(self.ds)
+        if self.ds.elevation.dims == ("lat", "lon"):
+            raise ValueError("The loaded bathymetry is already a regular grid.")
+        if self.ds.elevation.dims != ("point",):
+            raise ValueError(
+                "A grid can only be created from an `elevation` variable with a single `point` dimension."
+            )
+
+        elevation_attrs = self.ds.elevation.attrs.copy()
+        dataset_attrs = self.ds.attrs.copy()
+        grid_lon, grid_lat, elevation_grid = self._interpolate_to_grid(
+            self.ds.lon.values,
+            self.ds.lat.values,
+            self.ds.elevation.values,
+            size_mesh=size_mesh,
+            method=method,
+        )
+        self.ds = xr.Dataset(
+            {"elevation": (("lat", "lon"), elevation_grid, elevation_attrs)},
+            coords={"lon": grid_lon, "lat": grid_lat},
+            attrs=dataset_attrs,
+        )
+        self._log_dataset_summary("Converted point dataset to grid")
 
     def save_nc(self, file_path: str | Path) -> None:
         """Save the current dataset to NetCDF."""
@@ -221,31 +296,94 @@ class Bathymetry:
         validate_loaded_dataset(self.ds)
         lat = self.ds.lat.values
         lon = self.ds.lon.values
-        lon_mesh, lat_mesh = np.meshgrid(lon, lat)
-
         elevation = self.ds.elevation.values
+        if self.ds.elevation.dims == ("point",):
+            output_lon = lon
+            output_lat = lat
+        else:
+            self._require_grid("save_dat")
+            output_lon, output_lat = np.meshgrid(lon, lat)
 
         if z_neg:
             elevation = elevation * -1
 
         if in_utm:
-            x, y, _, _ = utm.from_latlon(lat_mesh, lon_mesh)
+            x, y, _, _ = utm.from_latlon(output_lat, output_lon)
             output = np.column_stack((x.ravel(), y.ravel(), elevation.ravel()))
         else:
-            output = np.column_stack((lon_mesh.ravel(), lat_mesh.ravel(), elevation.ravel()))
+            output = np.column_stack((output_lon.ravel(), output_lat.ravel(), elevation.ravel()))
 
         np.savetxt(file_path, output, fmt="%.10f")
         self.logger.info("Saved XYZ bathymetry to %s", file_path)
 
-    def merge(self, detail: "Bathymetry") -> "Bathymetry":
-        """Merge a detail bathymetry onto the current dataset."""
+    def merge(self, detail: "Bathymetry", method: str = "nearest") -> "Bathymetry":
+        """Merge valid detail elevations onto the current dataset.
+
+        Parameters
+        ----------
+        detail : Bathymetry
+            Higher-detail dataset to overlay on the current bathymetry.
+        method : str, default="nearest"
+            Interpolation method passed to :meth:`xarray.Dataset.interp`.
+        """
+
+        if not isinstance(detail, Bathymetry):
+            raise TypeError("`detail` must be a Bathymetry instance.")
 
         validate_loaded_dataset(self.ds)
         validate_loaded_dataset(detail.ds)
 
-        self.logger.info("Merging base and detail bathymetry datasets.")
-        interpolated_detail = detail.ds.interp(lon=self.ds.lon, lat=self.ds.lat, method="nearest")
-        merged_elevation = xr.where(interpolated_detail.elevation.notnull(), interpolated_detail.elevation, self.ds.elevation)
+        required = {"lon", "lat", "elevation"}
+        for dataset_name, dataset in (("base", self.ds), ("detail", detail.ds)):
+            missing = required.difference(dataset.variables)
+            if missing:
+                raise ValueError(f"The {dataset_name} dataset is missing required variables: {sorted(missing)}.")
+            if dataset.elevation.dims not in {("lat", "lon"), ("point",)}:
+                raise ValueError(
+                    f"The {dataset_name} `elevation` variable must have dimensions ('lat', 'lon') or ('point',); "
+                    f"got {dataset.elevation.dims}."
+                )
+            for coordinate_name in ("lon", "lat"):
+                coordinate = dataset[coordinate_name]
+                expected_dimension = coordinate_name if dataset.elevation.dims == ("lat", "lon") else "point"
+                if coordinate.ndim != 1 or coordinate.dims != (expected_dimension,):
+                    raise ValueError(
+                        f"The {dataset_name} `{coordinate_name}` coordinate must be one-dimensional."
+                    )
+                if not np.issubdtype(coordinate.dtype, np.number):
+                    raise ValueError(f"The {dataset_name} `{coordinate_name}` coordinate must be numeric.")
+                values = coordinate.values
+                if not np.all(np.isfinite(values)):
+                    raise ValueError(f"The {dataset_name} `{coordinate_name}` coordinate must contain finite values.")
+                if dataset.elevation.dims == ("lat", "lon") and np.unique(values).size != values.size:
+                    raise ValueError(f"The {dataset_name} `{coordinate_name}` coordinate must contain unique values.")
+
+        base_crs = self.ds.attrs.get("crs")
+        detail_crs = detail.ds.attrs.get("crs")
+        if base_crs is not None and detail_crs is not None and base_crs != detail_crs:
+            raise ValueError(f"Cannot merge datasets with different CRS values: {base_crs!r} and {detail_crs!r}.")
+
+        overlaps = (
+            float(self.ds.lon.min()) <= float(detail.ds.lon.max())
+            and float(detail.ds.lon.min()) <= float(self.ds.lon.max())
+            and float(self.ds.lat.min()) <= float(detail.ds.lat.max())
+            and float(detail.ds.lat.min()) <= float(self.ds.lat.max())
+        )
+        if not overlaps:
+            raise ValueError("The base and detail datasets do not overlap.")
+
+        if detail.ds.elevation.dims == ("point",):
+            return self._merge_point_detail(detail)
+
+        self._require_grid("merge")
+        self.logger.info("Merging base and detail bathymetry datasets using %s interpolation.", method)
+        interpolated_detail = detail.ds.elevation.interp(
+            lon=self.ds.lon,
+            lat=self.ds.lat,
+            method=method,
+        )
+        merged_elevation = interpolated_detail.combine_first(self.ds.elevation)
+        merged_elevation.attrs = self.ds.elevation.attrs.copy()
         merged_dataset = self.ds.copy()
         merged_dataset["elevation"] = merged_elevation
         result = Bathymetry.from_dataset(
@@ -258,11 +396,55 @@ class Bathymetry:
         result._log_dataset_summary("Merged dataset")
         return result
 
-    def fusionate(self, b_detail: "Bathymetry") -> "Bathymetry":
-        """Backward-compatible alias for :meth:`merge`."""
+    def _merge_point_detail(self, detail: "Bathymetry") -> "Bathymetry":
+        """Replace base samples inside the detail footprint with original detail points."""
 
-        warnings.warn("`fusionate` is deprecated; use `merge` instead.", DeprecationWarning, stacklevel=2)
-        return self.merge(b_detail)
+        base_lon, base_lat, base_elevation = self._dataset_as_points(self.ds)
+        detail_lon, detail_lat, detail_elevation = self._dataset_as_points(detail.ds)
+        detail_valid = np.isfinite(detail_lon) & np.isfinite(detail_lat) & np.isfinite(detail_elevation)
+        detail_lon = detail_lon[detail_valid]
+        detail_lat = detail_lat[detail_valid]
+        detail_elevation = detail_elevation[detail_valid]
+        if detail_elevation.size < 3:
+            raise ValueError("At least three finite detail points are required to determine its footprint.")
+
+        detail_coordinates = np.column_stack((detail_lon, detail_lat))
+        unique_coordinates, unique_indices = np.unique(detail_coordinates, axis=0, return_index=True)
+        detail_elevation = detail_elevation[unique_indices]
+        try:
+            footprint = Delaunay(unique_coordinates)
+        except QhullError as error:
+            raise ValueError("The detail points must define a two-dimensional spatial footprint.") from error
+
+        base_coordinates = np.column_stack((base_lon, base_lat))
+        base_valid = np.isfinite(base_lon) & np.isfinite(base_lat) & np.isfinite(base_elevation)
+        inside_detail = np.zeros(base_elevation.size, dtype=bool)
+        inside_detail[base_valid] = footprint.find_simplex(base_coordinates[base_valid]) >= 0
+        keep_base = base_valid & ~inside_detail
+
+        merged_dataset = xr.Dataset(
+            {
+                "elevation": (
+                    "point",
+                    np.concatenate((base_elevation[keep_base], detail_elevation)),
+                    self.ds.elevation.attrs.copy(),
+                )
+            },
+            coords={
+                "lon": ("point", np.concatenate((base_lon[keep_base], unique_coordinates[:, 0]))),
+                "lat": ("point", np.concatenate((base_lat[keep_base], unique_coordinates[:, 1]))),
+            },
+            attrs=self.ds.attrs.copy(),
+        )
+        result = Bathymetry.from_dataset(
+            merged_dataset,
+            utm_zone_number=self.utm_zone_number,
+            utm_zone_letter=self.utm_zone_letter,
+            source_crs=self.source_crs,
+            name_logger=self.logger.name,
+        )
+        result._log_dataset_summary("Merged multiresolution point dataset")
+        return result
 
     def plot(
         self,
@@ -278,6 +460,21 @@ class Bathymetry:
         """Plot the loaded bathymetry as filled contours."""
 
         validate_loaded_dataset(self.ds)
+        if self.ds.elevation.dims == ("point",):
+            return plot_point_bathymetry(
+                self.ds.lon.values,
+                self.ds.lat.values,
+                self.ds.elevation.values,
+                cmap=cmap,
+                x_lim=x_lim,
+                y_lim=y_lim,
+                zmin=zmin,
+                zmax=zmax,
+                step_beriles=step_beriles,
+                title_suffix=aux_title,
+                axis=_ax,
+            )
+        self._require_grid("plot")
         return plot_bathymetry(
             self.ds.lon.values,
             self.ds.lat.values,
@@ -296,6 +493,7 @@ class Bathymetry:
         """Plot the loaded bathymetry as a 3D surface."""
 
         validate_loaded_dataset(self.ds)
+        self._require_grid("plot_3d")
         return plot_bathymetry_3d(
             self.ds.lon.values,
             self.ds.lat.values,
@@ -307,6 +505,7 @@ class Bathymetry:
         """Plot orthogonal profiles through a longitude/latitude location."""
 
         validate_loaded_dataset(self.ds)
+        self._require_grid("plot_orthogonal_profile")
         plot_orthogonal_profile(
             self.ds.lon.values,
             self.ds.lat.values,
@@ -337,6 +536,7 @@ class Bathymetry:
         """Plot an oblique bathymetry profile between two coordinates."""
 
         validate_loaded_dataset(self.ds)
+        self._require_grid("plot_oblique_profile")
         plot_oblique_profile(
             self.ds.lon.values,
             self.ds.lat.values,
@@ -370,6 +570,8 @@ class Bathymetry:
 
         validate_loaded_dataset(self.ds)
         validate_loaded_dataset(detail.ds)
+        self._require_grid("plot_merge_preview")
+        detail._require_grid("plot_merge_preview")
         plot_merge_preview(
             self.ds.lon.values,
             self.ds.lat.values,
@@ -402,6 +604,21 @@ class Bathymetry:
             return np.asarray(lon, dtype=float), np.asarray(lat, dtype=float)
 
         return np.asarray(x, dtype=float), np.asarray(y, dtype=float)
+
+    def _require_grid(self, operation: str) -> None:
+        """Raise a clear error when an operation requires gridded data."""
+
+        if self.ds.elevation.dims != ("lat", "lon"):
+            raise ValueError(f"`{operation}` requires a regular grid; call `to_grid()` first.")
+
+    @staticmethod
+    def _dataset_as_points(dataset: xr.Dataset) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return flattened longitude, latitude, and elevation arrays."""
+
+        if dataset.elevation.dims == ("point",):
+            return dataset.lon.values, dataset.lat.values, dataset.elevation.values
+        lon_mesh, lat_mesh = np.meshgrid(dataset.lon.values, dataset.lat.values)
+        return lon_mesh.ravel(), lat_mesh.ravel(), dataset.elevation.values.ravel()
 
     def _log_dataset_summary(self, prefix: str) -> None:
         """Log concise dataset summary information."""
